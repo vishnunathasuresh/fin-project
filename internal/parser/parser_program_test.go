@@ -97,3 +97,17 @@ func TestParseProgram_StopsOnlyOnEOF(t *testing.T) {
 		t.Fatalf("parser not at EOF after ParseProgram")
 	}
 }
+
+func TestParseProgram_ErrorRecovery_MissingEnd(t *testing.T) {
+	src := "if exists \"a\"\nset b 2\nset c 3\n"
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	prog := p.ParseProgram()
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected errors for malformed if block")
+	}
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1 (unterminated if captured)", len(prog.Statements))
+	}
+}

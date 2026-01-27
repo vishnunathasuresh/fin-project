@@ -157,8 +157,37 @@ func TestParseExpression_IndexAndProperty(t *testing.T) {
 	}
 }
 
+func TestParseExpression_UnaryBangChaining(t *testing.T) {
+	expr := parseExpr(t, "!!true")
+	un1, ok := expr.(*ast.UnaryExpr)
+	if !ok || un1.Op != "!" {
+		t.Fatalf("outer not unary !: %T", expr)
+	}
+	un2, ok := un1.Right.(*ast.UnaryExpr)
+	if !ok || un2.Op != "!" {
+		t.Fatalf("inner not unary !: %T", un1.Right)
+	}
+	if b, ok := un2.Right.(*ast.BoolLit); !ok || b.Value != true {
+		t.Fatalf("expected bool true inside unary chain")
+	}
+}
+
+func TestParseExpression_UnaryPrecedenceWithMul(t *testing.T) {
+	expr := parseExpr(t, "-5 * 3")
+	mul := requireBinary(t, expr)
+	if mul.Op != "*" {
+		t.Fatalf("root not *: %q", mul.Op)
+	}
+	if un, ok := mul.Left.(*ast.UnaryExpr); !ok || un.Op != "-" {
+		t.Fatalf("left not unary -: %T", mul.Left)
+	}
+	if num, ok := mul.Right.(*ast.NumberLit); !ok || num.Value != "3" {
+		t.Fatalf("right not number 3: %T", mul.Right)
+	}
+}
+
 func TestParseExpression_UnaryBinding(t *testing.T) {
-	expr := parseExpr(t, "-1 * 2")
+	expr := parseExpr(t, "-a * b")
 	mul := requireBinary(t, expr)
 	if mul.Op != "*" {
 		t.Fatalf("root op = %q, want *", mul.Op)

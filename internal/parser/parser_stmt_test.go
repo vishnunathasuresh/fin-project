@@ -15,6 +15,14 @@ func parseProgram(t *testing.T, src string) *ast.Program {
 	return p.ParseProgram()
 }
 
+func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
+	t.Helper()
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	return p.ParseProgram(), p
+}
+
 func TestParse_SetEchoRunCallReturn(t *testing.T) {
 	src := "set a 1\necho $a\nrun \"cmd\"\nfoo 1 2\nreturn 42\n"
 	prog := parseProgram(t, src)
@@ -35,6 +43,30 @@ func TestParse_SetEchoRunCallReturn(t *testing.T) {
 	}
 	if _, ok := prog.Statements[4].(*ast.ReturnStmt); !ok {
 		t.Fatalf("stmt4 not return: %T", prog.Statements[4])
+	}
+}
+
+func TestParse_Call_NoArgs(t *testing.T) {
+	src := "foo\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	call, ok := prog.Statements[0].(*ast.CallStmt)
+	if !ok || call.Name != "foo" || len(call.Args) != 0 {
+		t.Fatalf("call stmt wrong: %T name=%q args=%d", prog.Statements[0], call.Name, len(call.Args))
+	}
+}
+
+func TestParse_Call_ManyArgs(t *testing.T) {
+	src := "foo 1 2 3\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	call, ok := prog.Statements[0].(*ast.CallStmt)
+	if !ok || call.Name != "foo" || len(call.Args) != 3 {
+		t.Fatalf("call stmt wrong: %T name=%q args=%d", prog.Statements[0], call.Name, len(call.Args))
 	}
 }
 
@@ -68,6 +100,17 @@ func TestParse_For(t *testing.T) {
 	}
 }
 
+func TestParse_For_InvalidRange(t *testing.T) {
+	src := "for i in 1.3\nend\n" // missing '..'
+	prog, p := parseProgramWithParser(t, src)
+	if len(prog.Statements) != 0 {
+		t.Fatalf("got %d statements, want 0 when header invalid", len(prog.Statements))
+	}
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected errors for invalid for range syntax")
+	}
+}
+
 func TestParse_While(t *testing.T) {
 	src := "while 1\nfoo\nend\n"
 	prog := parseProgram(t, src)
@@ -76,6 +119,45 @@ func TestParse_While(t *testing.T) {
 	}
 	if _, ok := prog.Statements[0].(*ast.WhileStmt); !ok {
 		t.Fatalf("stmt not WhileStmt: %T", prog.Statements[0])
+	}
+}
+
+func TestParse_While_Nested(t *testing.T) {
+	src := "while 1\nwhile 2\nend\nend\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	outer, ok := prog.Statements[0].(*ast.WhileStmt)
+	if !ok {
+		t.Fatalf("stmt not WhileStmt: %T", prog.Statements[0])
+	}
+	if len(outer.Body) != 1 {
+		t.Fatalf("outer body len = %d, want 1", len(outer.Body))
+	}
+	if _, ok := outer.Body[0].(*ast.WhileStmt); !ok {
+		t.Fatalf("inner not WhileStmt: %T", outer.Body[0])
+	}
+}
+
+func TestParse_BreakAndContinue(t *testing.T) {
+	src := "while 1\nbreak\ncontinue\nend\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	w, ok := prog.Statements[0].(*ast.WhileStmt)
+	if !ok {
+		t.Fatalf("stmt not WhileStmt: %T", prog.Statements[0])
+	}
+	if len(w.Body) != 2 {
+		t.Fatalf("while body len = %d, want 2", len(w.Body))
+	}
+	if _, ok := w.Body[0].(*ast.BreakStmt); !ok {
+		t.Fatalf("first not BreakStmt: %T", w.Body[0])
+	}
+	if _, ok := w.Body[1].(*ast.ContinueStmt); !ok {
+		t.Fatalf("second not ContinueStmt: %T", w.Body[1])
 	}
 }
 
