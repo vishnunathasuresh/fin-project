@@ -82,6 +82,14 @@ func (l *Lexer) NextToken() token.Token {
 		l.next()
 		return token.New(token.RBRACE, "}", startLine, startCol)
 
+	case ch == '(':
+		l.next()
+		return token.New(token.LPAREN, "(", startLine, startCol)
+
+	case ch == ')':
+		l.next()
+		return token.New(token.RPAREN, ")", startLine, startCol)
+
 	case ch == ',':
 		l.next()
 		return token.New(token.COMMA, ",", startLine, startCol)
@@ -107,6 +115,11 @@ func (l *Lexer) NextToken() token.Token {
 		return token.New(token.MINUS, "-", startLine, startCol)
 
 	case ch == '*':
+		if l.peekNext() == '*' {
+			l.next()
+			l.next()
+			return token.New(token.POW, "**", startLine, startCol)
+		}
 		l.next()
 		return token.New(token.STAR, "*", startLine, startCol)
 

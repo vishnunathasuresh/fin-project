@@ -102,6 +102,7 @@ Operators:
 
 ```
 !   unary not
+**  exponentiation (right-associative, highest precedence)
 * / multiplication
 + - addition
 < <= > >= comparisons
@@ -170,6 +171,8 @@ end
 while x > 0
     set x x - 1
 end
+
+While conditions accept expressions.
 ```
 
 ---

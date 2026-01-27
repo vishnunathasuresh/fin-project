@@ -114,7 +114,7 @@ func (*ForStmt) node()      {}
 func (*ForStmt) stmt()      {}
 
 type WhileStmt struct {
-	Cond Condition
+	Cond Expr
 	Body []Statement
 	P    Pos
 }
