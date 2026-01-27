@@ -132,6 +132,22 @@ func (s *ReturnStmt) Pos() Pos { return s.P }
 func (*ReturnStmt) node()      {}
 func (*ReturnStmt) stmt()      {}
 
+type BreakStmt struct {
+	P Pos
+}
+
+func (s *BreakStmt) Pos() Pos { return s.P }
+func (*BreakStmt) node()      {}
+func (*BreakStmt) stmt()      {}
+
+type ContinueStmt struct {
+	P Pos
+}
+
+func (s *ContinueStmt) Pos() Pos { return s.P }
+func (*ContinueStmt) node()      {}
+func (*ContinueStmt) stmt()      {}
+
 //
 // ---- Conditions ----
 //

@@ -35,6 +35,8 @@ const (
 	COLON    Type = ":"
 	WHILE    Type = "WHILE"
 	RETURN   Type = "RETURN"
+	BREAK    Type = "BREAK"
+	CONTINUE Type = "CONTINUE"
 	TRUE     Type = "TRUE"
 	FALSE    Type = "FALSE"
 	PLUS     Type = "+"
@@ -70,20 +72,22 @@ func New(t Type, lit string, line, col int) Token {
 }
 
 var Keywords = map[string]Type{
-	"set":    SET,
-	"echo":   ECHO,
-	"run":    RUN,
-	"if":     IF,
-	"else":   ELSE,
-	"end":    END,
-	"for":    FOR,
-	"while":  WHILE,
-	"return": RETURN,
-	"true":   TRUE,
-	"false":  FALSE,
-	"in":     IN,
-	"exists": EXISTS,
-	"fn":     FN,
+	"set":      SET,
+	"echo":     ECHO,
+	"run":      RUN,
+	"if":       IF,
+	"else":     ELSE,
+	"end":      END,
+	"for":      FOR,
+	"while":    WHILE,
+	"return":   RETURN,
+	"break":    BREAK,
+	"continue": CONTINUE,
+	"true":     TRUE,
+	"false":    FALSE,
+	"in":       IN,
+	"exists":   EXISTS,
+	"fn":       FN,
 }
 
 func LookupIdent(ident string) Type {

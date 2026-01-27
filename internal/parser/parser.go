@@ -126,6 +126,10 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseWhile()
 	case token.FN:
 		return p.parseFn()
+	case token.BREAK:
+		return p.parseBreak()
+	case token.CONTINUE:
+		return p.parseContinue()
 	case token.IDENT:
 		return p.parseCall()
 	default:
@@ -307,6 +311,18 @@ func (p *Parser) parseFn() ast.Statement {
 	}
 	p.consumeNewlineIfPresent()
 	return &ast.FnDecl{Name: nameTok.Literal, Params: params, Body: body, P: ast.Pos{Line: fnTok.Line, Column: fnTok.Column}}
+}
+
+func (p *Parser) parseBreak() ast.Statement {
+	brTok := p.next() // consume 'break'
+	p.consumeNewlineIfPresent()
+	return &ast.BreakStmt{P: ast.Pos{Line: brTok.Line, Column: brTok.Column}}
+}
+
+func (p *Parser) parseContinue() ast.Statement {
+	ctTok := p.next() // consume 'continue'
+	p.consumeNewlineIfPresent()
+	return &ast.ContinueStmt{P: ast.Pos{Line: ctTok.Line, Column: ctTok.Column}}
 }
 
 func (p *Parser) parseCondition() ast.Condition {

@@ -16,6 +16,14 @@ func parseExpr(t *testing.T, src string) ast.Expr {
 	return expr
 }
 
+func parseExprWithParser(t *testing.T, src string) (ast.Expr, *Parser) {
+	t.Helper()
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	return p.parseExpression(0), p
+}
+
 func requireBinary(t *testing.T, expr ast.Expr) *ast.BinaryExpr {
 	t.Helper()
 	bin, ok := expr.(*ast.BinaryExpr)
@@ -42,6 +50,29 @@ func TestParseExpression_ArithmeticPrecedence(t *testing.T) {
 	}
 	if right.Left.(*ast.NumberLit).Value != "2" || right.Right.(*ast.NumberLit).Value != "3" {
 		t.Fatalf("multiplication operands incorrect")
+	}
+}
+
+func TestParseExpression_EmptyListAndMap(t *testing.T) {
+	listExpr := parseExpr(t, "[]")
+	if l, ok := listExpr.(*ast.ListLit); !ok || len(l.Elements) != 0 {
+		t.Fatalf("expected empty list, got %T with len=%d", listExpr, len(l.Elements))
+	}
+
+	mapExpr := parseExpr(t, "{}")
+	if m, ok := mapExpr.(*ast.MapLit); !ok || len(m.Pairs) != 0 {
+		t.Fatalf("expected empty map, got %T with len=%d", mapExpr, len(m.Pairs))
+	}
+}
+
+func TestParseExpression_UnmatchedDelimiters_NoPanic(t *testing.T) {
+	_, p1 := parseExprWithParser(t, "[1, 2")
+	if len(p1.Errors()) == 0 {
+		t.Fatalf("expected errors for unmatched list delimiter")
+	}
+	_, p2 := parseExprWithParser(t, "{a:1")
+	if len(p2.Errors()) == 0 {
+		t.Fatalf("expected errors for unmatched map delimiter")
 	}
 }
 
@@ -143,4 +174,41 @@ func TestParseExpression_Malformed_NoPanic(t *testing.T) {
 	p := New(toks)
 	_ = p.parseExpression(0)
 	// No panic; errors may be recorded
+}
+
+func TestParseExpression_SingleLiteral(t *testing.T) {
+	expr := parseExpr(t, "\"hi\"")
+	str, ok := expr.(*ast.StringLit)
+	if !ok || str.Value != "hi" {
+		t.Fatalf("expected string literal 'hi', got %T %v", expr, str)
+	}
+}
+
+func TestParseExpression_NestedList(t *testing.T) {
+	expr := parseExpr(t, "[1, [2, 3]]")
+	list, ok := expr.(*ast.ListLit)
+	if !ok {
+		t.Fatalf("root not ListLit: %T", expr)
+	}
+	if len(list.Elements) != 2 {
+		t.Fatalf("outer list len = %d, want 2", len(list.Elements))
+	}
+	inner, ok := list.Elements[1].(*ast.ListLit)
+	if !ok || len(inner.Elements) != 2 {
+		t.Fatalf("inner list invalid: %T len=%d", list.Elements[1], len(inner.Elements))
+	}
+}
+
+func TestParseExpression_MapMultipleKeys(t *testing.T) {
+	expr := parseExpr(t, "{a:1, b:2}")
+	mapLit, ok := expr.(*ast.MapLit)
+	if !ok {
+		t.Fatalf("root not MapLit: %T", expr)
+	}
+	if len(mapLit.Pairs) != 2 {
+		t.Fatalf("map pairs len = %d, want 2", len(mapLit.Pairs))
+	}
+	if mapLit.Pairs[0].Key != "a" || mapLit.Pairs[1].Key != "b" {
+		t.Fatalf("map keys wrong: %q %q", mapLit.Pairs[0].Key, mapLit.Pairs[1].Key)
+	}
 }
