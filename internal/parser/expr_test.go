@@ -76,6 +76,35 @@ func TestParseExpression_UnmatchedDelimiters_NoPanic(t *testing.T) {
 	}
 }
 
+func TestParseExpression_DeepChaining(t *testing.T) {
+	expr := parseExpr(t, "a.b[0].c")
+	propC, ok := expr.(*ast.PropertyExpr)
+	if !ok || propC.Field != "c" {
+		t.Fatalf("root not property .c: %T", expr)
+	}
+	idx, ok := propC.Object.(*ast.IndexExpr)
+	if !ok {
+		t.Fatalf("object not IndexExpr: %T", propC.Object)
+	}
+	if _, ok := idx.Index.(*ast.NumberLit); !ok {
+		t.Fatalf("index not number")
+	}
+	propB, ok := idx.Left.(*ast.PropertyExpr)
+	if !ok || propB.Field != "b" {
+		t.Fatalf("left not property .b: %T", idx.Left)
+	}
+	if ident, ok := propB.Object.(*ast.IdentExpr); !ok || ident.Name != "a" {
+		t.Fatalf("base not ident a: %T", propB.Object)
+	}
+}
+
+func TestParseExpression_InvalidAccessRecovery(t *testing.T) {
+	_, p := parseExprWithParser(t, "a.1")
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected errors for invalid property access")
+	}
+}
+
 func TestParseExpression_BooleanPrecedence(t *testing.T) {
 	expr := parseExpr(t, "true || false && true")
 	orNode := requireBinary(t, expr)
