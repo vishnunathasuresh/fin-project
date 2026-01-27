@@ -267,6 +267,7 @@ property → primary "." IDENT
 * Emits NEWLINE tokens.
 * Tracks line and column.
 * Skips comments.
+* Variable references: `$name` lexes as IDENT with literal `name` (leading `$` is not kept). `$` not followed by a letter yields an ILLEGAL token.
 
 Tokens include:
 

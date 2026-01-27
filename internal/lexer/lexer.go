@@ -89,6 +89,15 @@ func (l *Lexer) NextToken() token.Token {
 	case ch == ':':
 		l.next()
 		return token.New(token.COLON, ":", startLine, startCol)
+
+	case ch == '$':
+		// Variable reference: $name
+		l.next() // consume '$'
+		if !isLetter(l.peek()) {
+			return token.New(token.ILLEGAL, string(ch), startLine, startCol)
+		}
+		ident := l.readIdentifier()
+		return token.New(token.IDENT, ident, startLine, startCol)
 	case ch == '+':
 		l.next()
 		return token.New(token.PLUS, "+", startLine, startCol)
