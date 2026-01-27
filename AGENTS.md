@@ -241,7 +241,7 @@ returnStmt → "return" [expr] NEWLINE
 
 block → { statement }
 
-condition → "exists" STRING
+condition → "exists" STRING | expr
 
 expr → logicalOr
 logicalOr → logicalAnd { "||" logicalAnd }

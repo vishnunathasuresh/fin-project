@@ -91,7 +91,7 @@ func (*FnDecl) node()      {}
 func (*FnDecl) stmt()      {}
 
 type IfStmt struct {
-	Cond Condition
+	Cond Expr
 	Then []Statement
 	Else []Statement
 	P    Pos
@@ -152,11 +152,6 @@ func (*ContinueStmt) stmt()      {}
 // ---- Conditions ----
 //
 
-type Condition interface {
-	Node
-	cond()
-}
-
 type ExistsCond struct {
 	Path Expr
 	P    Pos
@@ -164,7 +159,7 @@ type ExistsCond struct {
 
 func (c *ExistsCond) Pos() Pos { return c.P }
 func (*ExistsCond) node()      {}
-func (*ExistsCond) cond()      {}
+func (*ExistsCond) expr()      {}
 
 //
 // ---- Expressions ----

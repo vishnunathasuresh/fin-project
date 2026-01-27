@@ -216,7 +216,7 @@ func (p *Parser) parseCall() ast.Statement {
 
 func (p *Parser) parseIf() ast.Statement {
 	ifTok := p.next() // consume 'if'
-	cond := p.parseCondition()
+	cond := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
 		p.errors = append(p.errors, fmt.Errorf("expected newline after if condition"))
 	}
@@ -325,17 +325,8 @@ func (p *Parser) parseContinue() ast.Statement {
 	return &ast.ContinueStmt{P: ast.Pos{Line: ctTok.Line, Column: ctTok.Column}}
 }
 
-func (p *Parser) parseCondition() ast.Condition {
-	if !p.check(token.EXISTS) {
-		p.errors = append(p.errors, fmt.Errorf("expected exists condition"))
-		return nil
-	}
-	condTok := p.next() // consume exists
-	path := p.parseExpression(0)
-	return &ast.ExistsCond{Path: path, P: ast.Pos{Line: condTok.Line, Column: condTok.Column}}
-}
-
-func (p *Parser) parseBlock(terminators ...token.Type) []ast.Statement {
+func (p *Parser) parseBlock(until token.Type, others ...token.Type) []ast.Statement {
+	terminators := append([]token.Type{until}, others...)
 	var stmts []ast.Statement
 	for !p.isAtEnd() {
 		if p.check(token.NEWLINE) {
