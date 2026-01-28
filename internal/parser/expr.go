@@ -23,12 +23,30 @@ var precedences = map[token.Type]int{
 	token.POW:      8, // highest, right-associative
 }
 
+var prefixParseFns map[token.Type]prefixParseFn
+
+func init() {
+	prefixParseFns = map[token.Type]prefixParseFn{
+		token.IDENT:    parseIdent,
+		token.STRING:   parseString,
+		token.NUMBER:   parseNumber,
+		token.TRUE:     parseBool,
+		token.FALSE:    parseBool,
+		token.EXISTS:   parseExists,
+		token.BANG:     parseUnary,
+		token.MINUS:    parseUnary,
+		token.LPAREN:   parseGrouped,
+		token.LBRACKET: parseList,
+		token.LBRACE:   parseMap,
+	}
+}
+
 type prefixParseFn func(*Parser) ast.Expr
 type infixParseFn func(*Parser, ast.Expr) ast.Expr
 
 // parseExpression implements Pratt parsing using prefix/infix functions.
 func (p *Parser) parseExpression(precedence int) ast.Expr {
-	prefix := p.prefixFn(p.current().Type)
+	prefix := prefixParseFns[p.current().Type]
 	if prefix == nil {
 		p.errors = append(p.errors, fmt.Errorf("no prefix parse function for %s", p.current().Type))
 		return nil
@@ -51,29 +69,6 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 	}
 
 	return left
-}
-
-func (p *Parser) prefixFn(t token.Type) prefixParseFn {
-	switch t {
-	case token.IDENT:
-		return parseIdent
-	case token.NUMBER:
-		return parseNumber
-	case token.STRING:
-		return parseString
-	case token.TRUE, token.FALSE:
-		return parseBool
-	case token.MINUS, token.BANG:
-		return parseUnary
-	case token.LBRACKET:
-		return parseList
-	case token.LBRACE:
-		return parseMap
-	case token.LPAREN:
-		return parseGrouped
-	default:
-		return nil
-	}
 }
 
 func (p *Parser) infixFn(t token.Type) infixParseFn {
@@ -121,6 +116,12 @@ func parseBool(p *Parser) ast.Expr {
 	tok := p.next()
 	val := tok.Type == token.TRUE
 	return &ast.BoolLit{Value: val, P: ast.Pos{Line: tok.Line, Column: tok.Column}}
+}
+
+func parseExists(p *Parser) ast.Expr {
+	tok := p.next() // consume 'exists'
+	path := p.parseExpression(0)
+	return &ast.ExistsCond{Path: path, P: ast.Pos{Line: tok.Line, Column: tok.Column}}
 }
 
 func parseUnary(p *Parser) ast.Expr {
