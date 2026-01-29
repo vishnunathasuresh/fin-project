@@ -166,6 +166,63 @@ func TestAnalyze_CallOK(t *testing.T) {
 	}
 }
 
+func TestAnalyze_CallMixedCorrectAndWrong(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.FnDecl{Name: "f", Params: []string{"a"}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.CallStmt{Name: "f", Args: []ast.Expr{&ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}}, P: ast.Pos{Line: 2, Column: 1}}, // ok
+		&ast.CallStmt{Name: "f", Args: []ast.Expr{}, P: ast.Pos{Line: 3, Column: 1}},                                                           // wrong
+	}}
+	errs := Analyze(prog)
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error, got %v", errs)
+	}
+	var ia InvalidArityError
+	if !errors.As(errs[0], &ia) {
+		t.Fatalf("expected InvalidArityError, got %T", errs[0])
+	}
+}
+
+func TestAnalyze_CallForwardReferenceArity(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.CallStmt{Name: "g", Args: []ast.Expr{}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "g", Params: []string{}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
+	}}
+	errs := Analyze(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors for forward reference with correct arity, got %v", errs)
+	}
+}
+
+func TestAnalyze_CallUndefinedAndArityMixed(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.CallStmt{Name: "missing", Args: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "h", Params: []string{"a"}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.CallStmt{Name: "h", Args: []ast.Expr{}, P: ast.Pos{Line: 3, Column: 1}},
+	}}
+	errs := Analyze(prog)
+	if len(errs) != 2 {
+		t.Fatalf("expected 2 errors, got %v", errs)
+	}
+	var u UndefinedVariableError
+	var ia InvalidArityError
+	if !errors.As(errs[0], &u) || !errors.As(errs[1], &ia) {
+		t.Fatalf("expected undefined then arity errors, got %v", errs)
+	}
+}
+
+func TestAnalyze_CallZeroArgEdges(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.FnDecl{Name: "z", Params: []string{}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.CallStmt{Name: "z", Args: []ast.Expr{&ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}}, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.FnDecl{Name: "u", Params: []string{"a", "b"}, Body: nil, P: ast.Pos{Line: 3, Column: 1}},
+		&ast.CallStmt{Name: "u", Args: []ast.Expr{}, P: ast.Pos{Line: 4, Column: 1}},
+	}}
+	errs := Analyze(prog)
+	if len(errs) != 2 {
+		t.Fatalf("expected 2 errors, got %v", errs)
+	}
+}
+
 func TestAnalyzeDefinitions_TracksFnScope(t *testing.T) {
 	fn := &ast.FnDecl{Name: "foo", Params: []string{"p"}, Body: []ast.Statement{
 		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
