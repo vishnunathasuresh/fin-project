@@ -163,6 +163,9 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 func analyzeExpr(expr ast.Expr, scope *Scope, res *AnalysisResult) {
 	switch e := expr.(type) {
 	case *ast.IdentExpr:
+		if IsReserved(e.Name) {
+			return
+		}
 		if _, ok := scope.Lookup(e.Name); !ok {
 			res.Errors = append(res.Errors, UndefinedVariableError{Name: e.Name, P: e.P})
 		}

@@ -88,6 +88,30 @@ func TestAnalyze_UndefinedVariable(t *testing.T) {
 	}
 }
 
+func TestAnalyze_UndefinedVariable_PropertyBase(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.EchoStmt{Value: &ast.PropertyExpr{Object: &ast.IdentExpr{Name: "obj", P: ast.Pos{Line: 1, Column: 6}}, Field: "f", P: ast.Pos{Line: 1, Column: 9}}, P: ast.Pos{Line: 1, Column: 1}},
+	}}
+	errs := Analyze(prog)
+	if len(errs) == 0 {
+		t.Fatalf("expected undefined variable error for property base")
+	}
+	var u UndefinedVariableError
+	if !errors.As(errs[0], &u) {
+		t.Fatalf("expected UndefinedVariableError, got %T", errs[0])
+	}
+}
+
+func TestAnalyze_SkipReservedIdent(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.EchoStmt{Value: &ast.IdentExpr{Name: "true", P: ast.Pos{Line: 1, Column: 1}}, P: ast.Pos{Line: 1, Column: 1}},
+	}}
+	errs := Analyze(prog)
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors for reserved/builtin ident, got %v", errs)
+	}
+}
+
 func TestAnalyze_DuplicateDefinition(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
 		&ast.SetStmt{Name: "a", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 10}}, P: ast.Pos{Line: 1, Column: 1}},
