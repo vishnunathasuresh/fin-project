@@ -32,3 +32,24 @@ func lowerEchoStmt(ctx *Context, s *ast.EchoStmt) {
 func lowerRunStmt(ctx *Context, s *ast.RunStmt) {
 	ctx.emitLine(lowerExpr(s.Command))
 }
+
+// lowerIfStmt lowers an if/else statement with proper indentation.
+// emit is used to recursively lower nested statements.
+func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement)) {
+	cond := lowerCondition(s.Cond)
+	ctx.emitLine(fmt.Sprintf("if %s (", cond))
+	ctx.pushIndent()
+	for _, inner := range s.Then {
+		emit(inner)
+	}
+	ctx.popIndent()
+	if len(s.Else) > 0 {
+		ctx.emitLine(") else (")
+		ctx.pushIndent()
+		for _, inner := range s.Else {
+			emit(inner)
+		}
+		ctx.popIndent()
+	}
+	ctx.emitLine(")")
+}

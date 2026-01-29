@@ -78,22 +78,7 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) {
 	case *ast.SetStmt:
 		lowerSetStmt(g.ctx, s)
 	case *ast.IfStmt:
-		cond := lowerCondition(s.Cond)
-		g.ctx.emitLine(fmt.Sprintf("if %s (", cond))
-		g.ctx.pushIndent()
-		for _, inner := range s.Then {
-			g.emitStmt(inner)
-		}
-		g.ctx.popIndent()
-		if len(s.Else) > 0 {
-			g.ctx.emitLine(") else (")
-			g.ctx.pushIndent()
-			for _, inner := range s.Else {
-				g.emitStmt(inner)
-			}
-			g.ctx.popIndent()
-		}
-		g.ctx.emitLine(")")
+		lowerIfStmt(g.ctx, s, g.emitStmt)
 	case *ast.ForStmt:
 		start := lowerExpr(s.Start)
 		end := lowerExpr(s.End)
