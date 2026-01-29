@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/vishnunath-suresh/fin-project/internal/ast"
 )
@@ -35,40 +36,48 @@ func lowerRunStmt(ctx *Context, s *ast.RunStmt) {
 
 // lowerIfStmt lowers an if/else statement with proper indentation.
 // emit is used to recursively lower nested statements.
-func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement)) {
+func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) error {
 	cond := lowerCondition(s.Cond)
 	ctx.emitLine(fmt.Sprintf("if %s (", cond))
 	ctx.pushIndent()
 	for _, inner := range s.Then {
-		emit(inner)
+		if err := emit(inner); err != nil {
+			return err
+		}
 	}
 	ctx.popIndent()
 	if len(s.Else) > 0 {
 		ctx.emitLine(") else (")
 		ctx.pushIndent()
 		for _, inner := range s.Else {
-			emit(inner)
+			if err := emit(inner); err != nil {
+				return err
+			}
 		}
 		ctx.popIndent()
 	}
 	ctx.emitLine(")")
+	return nil
 }
 
 // lowerForStmt lowers a numeric range loop.
-func lowerForStmt(ctx *Context, s *ast.ForStmt, emit func(ast.Statement)) {
+func lowerForStmt(ctx *Context, s *ast.ForStmt, emit func(ast.Statement) error) error {
 	start := lowerExpr(s.Start)
 	end := lowerExpr(s.End)
 	ctx.emitLine(fmt.Sprintf("for /L %%"+s.Var+" in (%s,1,%s) do (", start, end))
 	ctx.pushIndent()
 	for _, inner := range s.Body {
-		emit(inner)
+		if err := emit(inner); err != nil {
+			return err
+		}
 	}
 	ctx.popIndent()
 	ctx.emitLine(")")
+	return nil
 }
 
 // lowerWhileStmt lowers a while loop using labels and conditional jumps.
-func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement)) {
+func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) error) error {
 	id := ctx.NextLabel()
 	start := whileStartLabel(id)
 	end := whileEndLabel(id)
@@ -76,14 +85,17 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement)) {
 	cond := lowerCondition(s.Cond)
 	ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
 	for _, inner := range s.Body {
-		emit(inner)
+		if err := emit(inner); err != nil {
+			return err
+		}
 	}
 	ctx.emitLine(fmt.Sprintf("goto %s", start))
 	ctx.emitLine(":" + end)
+	return nil
 }
 
 // lowerFnDecl lowers a function declaration to a batch label with parameter mapping.
-func lowerFnDecl(ctx *Context, fn *ast.FnDecl, emit func(ast.Statement)) {
+func lowerFnDecl(ctx *Context, fn *ast.FnDecl, emit func(ast.Statement) error) error {
 	label := mangleFunc(fn.Name)
 	ctx.emitLine("goto :eof")
 	ctx.emitLine(":" + label)
@@ -93,22 +105,49 @@ func lowerFnDecl(ctx *Context, fn *ast.FnDecl, emit func(ast.Statement)) {
 	}
 	ctx.pushIndent()
 	for _, stmt := range fn.Body {
-		emit(stmt)
+		if err := emit(stmt); err != nil {
+			return err
+		}
 	}
 	ctx.popIndent()
 	ctx.emitLine("endlocal")
 	ctx.emitLine("goto :eof")
+	return nil
 }
 
 // lowerCallStmt lowers a function call to a batch call label.
 func lowerCallStmt(ctx *Context, s *ast.CallStmt) {
 	label := mangleFunc(s.Name)
-	args := ""
+	var b strings.Builder
 	for i, arg := range s.Args {
 		if i > 0 {
-			args += " "
+			b.WriteString(" ")
 		}
-		args += lowerExpr(arg)
+		lowered := lowerExpr(arg)
+		b.WriteString(escapeCallArg(lowered))
 	}
-	ctx.emitLine(fmt.Sprintf("call :%s %s", label, args))
+	ctx.emitLine(fmt.Sprintf("call :%s %s", label, b.String()))
+}
+
+// escapeCallArg escapes batch specials and quotes when needed.
+func escapeCallArg(arg string) string {
+	specials := "^&|><()!"
+	needQuote := false
+	var b strings.Builder
+	for i := 0; i < len(arg); i++ {
+		ch := arg[i]
+		if ch == ' ' || ch == '\t' {
+			needQuote = true
+		}
+		if strings.ContainsRune(specials, rune(ch)) || ch == '^' {
+			b.WriteByte('^')
+			needQuote = true
+		}
+		b.WriteByte(ch)
+	}
+	res := b.String()
+	if needQuote {
+		return "\"" + res + "\""
+	}
+	return res
 }

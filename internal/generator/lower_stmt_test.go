@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -18,19 +19,22 @@ func TestLowerSetStmt_Scalar(t *testing.T) {
 
 func TestLowerWhileStmt(t *testing.T) {
 	ctx := NewContext()
-	lowerWhileStmt(ctx, &ast.WhileStmt{
+	if err := lowerWhileStmt(ctx, &ast.WhileStmt{
 		Cond: &ast.BoolLit{Value: true},
 		Body: []ast.Statement{
 			&ast.EchoStmt{Value: &ast.StringLit{Value: "loop"}},
 		},
-	}, func(st ast.Statement) {
+	}, func(st ast.Statement) error {
 		switch s := st.(type) {
 		case *ast.EchoStmt:
 			lowerEchoStmt(ctx, s)
+			return nil
 		default:
-			t.Fatalf("unexpected stmt type %T", s)
+			return fmt.Errorf("unexpected stmt type %T", s)
 		}
-	})
+	}); err != nil {
+		t.Fatalf("lowerWhileStmt error: %v", err)
+	}
 
 	want := strings.Join([]string{
 		":" + whileStartLabel(1),
@@ -48,7 +52,7 @@ func TestLowerWhileStmt(t *testing.T) {
 
 func TestLowerIfStmt_Nested(t *testing.T) {
 	ctx := NewContext()
-	lowerIfStmt(ctx, &ast.IfStmt{
+	if err := lowerIfStmt(ctx, &ast.IfStmt{
 		Cond: &ast.BoolLit{Value: true},
 		Then: []ast.Statement{
 			&ast.IfStmt{
@@ -64,23 +68,27 @@ func TestLowerIfStmt_Nested(t *testing.T) {
 		Else: []ast.Statement{
 			&ast.EchoStmt{Value: &ast.StringLit{Value: "outer-else"}},
 		},
-	}, func(st ast.Statement) {
+	}, func(st ast.Statement) error {
 		switch s := st.(type) {
 		case *ast.EchoStmt:
 			lowerEchoStmt(ctx, s)
+			return nil
 		case *ast.IfStmt:
-			lowerIfStmt(ctx, s, func(n ast.Statement) {
+			return lowerIfStmt(ctx, s, func(n ast.Statement) error {
 				switch x := n.(type) {
 				case *ast.EchoStmt:
 					lowerEchoStmt(ctx, x)
+					return nil
 				default:
-					t.Fatalf("unexpected nested stmt %T", x)
+					return fmt.Errorf("unexpected nested stmt %T", x)
 				}
 			})
 		default:
-			t.Fatalf("unexpected stmt type %T", s)
+			return fmt.Errorf("unexpected stmt type %T", s)
 		}
-	})
+	}); err != nil {
+		t.Fatalf("lowerIfStmt error: %v", err)
+	}
 
 	want := strings.Join([]string{
 		"if true (",
@@ -148,21 +156,24 @@ func TestLowerRunStmt(t *testing.T) {
 
 func TestLowerForStmt(t *testing.T) {
 	ctx := NewContext()
-	lowerForStmt(ctx, &ast.ForStmt{
+	if err := lowerForStmt(ctx, &ast.ForStmt{
 		Var:   "i",
 		Start: &ast.NumberLit{Value: "1"},
 		End:   &ast.NumberLit{Value: "5"},
 		Body: []ast.Statement{
 			&ast.EchoStmt{Value: &ast.IdentExpr{Name: "i"}},
 		},
-	}, func(st ast.Statement) {
+	}, func(st ast.Statement) error {
 		switch s := st.(type) {
 		case *ast.EchoStmt:
 			lowerEchoStmt(ctx, s)
+			return nil
 		default:
-			t.Fatalf("unexpected stmt type %T", s)
+			return fmt.Errorf("unexpected stmt type %T", s)
 		}
-	})
+	}); err != nil {
+		t.Fatalf("lowerForStmt error: %v", err)
+	}
 
 	want := strings.Join([]string{
 		"for /L %i in (1,1,5) do (",
@@ -178,7 +189,7 @@ func TestLowerForStmt(t *testing.T) {
 
 func TestLowerIfStmt_WithElse(t *testing.T) {
 	ctx := NewContext()
-	lowerIfStmt(ctx, &ast.IfStmt{
+	if err := lowerIfStmt(ctx, &ast.IfStmt{
 		Cond: &ast.BoolLit{Value: true},
 		Then: []ast.Statement{
 			&ast.EchoStmt{Value: &ast.StringLit{Value: "yes"}},
@@ -186,14 +197,17 @@ func TestLowerIfStmt_WithElse(t *testing.T) {
 		Else: []ast.Statement{
 			&ast.EchoStmt{Value: &ast.StringLit{Value: "no"}},
 		},
-	}, func(st ast.Statement) {
+	}, func(st ast.Statement) error {
 		switch s := st.(type) {
 		case *ast.EchoStmt:
 			lowerEchoStmt(ctx, s)
+			return nil
 		default:
-			t.Fatalf("unexpected stmt type %T", s)
+			return fmt.Errorf("unexpected stmt type %T", s)
 		}
-	})
+	}); err != nil {
+		t.Fatalf("lowerIfStmt error: %v", err)
+	}
 
 	want := strings.Join([]string{
 		"if true (",

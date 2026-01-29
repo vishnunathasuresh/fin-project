@@ -36,26 +36,30 @@ func (g *BatchGenerator) Generate(p *ast.Program) (string, error) {
 			fns = append(fns, fn)
 			continue
 		}
-		g.emitTopLevel(stmt)
+		if err := g.emitTopLevel(stmt); err != nil {
+			return "", err
+		}
 	}
 
 	for _, fn := range fns {
-		g.emitFunction(fn)
+		if err := g.emitFunction(fn); err != nil {
+			return "", err
+		}
 	}
 
 	return g.ctx.String(), nil
 }
 
-func (g *BatchGenerator) emitTopLevel(stmt ast.Statement) {
-	g.emitStmt(stmt)
+func (g *BatchGenerator) emitTopLevel(stmt ast.Statement) error {
+	return g.emitStmt(stmt)
 }
 
-func (g *BatchGenerator) emitFunction(fn *ast.FnDecl) {
-	lowerFnDecl(g.ctx, fn, g.emitStmt)
+func (g *BatchGenerator) emitFunction(fn *ast.FnDecl) error {
+	return lowerFnDecl(g.ctx, fn, g.emitStmt)
 }
 
-// emitStmt lowers a statement; currently a stub to maintain compilation until lowering is implemented.
-func (g *BatchGenerator) emitStmt(stmt ast.Statement) {
+// emitStmt lowers a statement; returns an error for unsupported nodes.
+func (g *BatchGenerator) emitStmt(stmt ast.Statement) error {
 	switch s := stmt.(type) {
 	case *ast.EchoStmt:
 		lowerEchoStmt(g.ctx, s)
@@ -64,16 +68,19 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) {
 	case *ast.SetStmt:
 		lowerSetStmt(g.ctx, s)
 	case *ast.IfStmt:
-		lowerIfStmt(g.ctx, s, g.emitStmt)
+		return lowerIfStmt(g.ctx, s, g.emitStmt)
 	case *ast.ForStmt:
-		lowerForStmt(g.ctx, s, g.emitStmt)
+		return lowerForStmt(g.ctx, s, g.emitStmt)
 	case *ast.WhileStmt:
-		lowerWhileStmt(g.ctx, s, g.emitStmt)
+		return lowerWhileStmt(g.ctx, s, g.emitStmt)
 	case *ast.CallStmt:
 		lowerCallStmt(g.ctx, s)
+	case *ast.FnDecl:
+		return fmt.Errorf("function declarations should be lifted before lowering")
 	default:
-		// TODO: lower other statements (if/for/while/etc.)
+		return fmt.Errorf("unsupported statement type %T", stmt)
 	}
+	return nil
 }
 
 func lowerCondition(c ast.Expr) string {

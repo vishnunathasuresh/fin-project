@@ -39,7 +39,7 @@ func TestGenerate_Call(t *testing.T) {
 				&ast.EchoStmt{Value: &ast.IdentExpr{Name: "name"}},
 			},
 		},
-		&ast.CallStmt{Name: "greet", Args: []ast.Expr{&ast.StringLit{Value: "Bob"}}},
+		&ast.CallStmt{Name: "greet", Args: []ast.Expr{&ast.StringLit{Value: "foo bar&baz"}}},
 	}}
 
 	out, err := g.Generate(prog)
@@ -48,7 +48,7 @@ func TestGenerate_Call(t *testing.T) {
 	}
 
 	want := "@echo off\n" +
-		"call :fn_greet Bob\n" +
+		"call :fn_greet \"foo bar^&baz\"\n" +
 		"goto :eof\n" +
 		":fn_greet\n" +
 		"setlocal\n" +
