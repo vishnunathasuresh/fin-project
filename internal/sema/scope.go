@@ -5,23 +5,23 @@ import "github.com/vishnunath-suresh/fin-project/internal/ast"
 // Scope represents a lexical scope with an optional parent and a table of names.
 type Scope struct {
 	Parent *Scope
-	vars   map[string]struct{}
+	vars   map[string]ast.Pos
 }
 
 // NewScope creates a new scope with the given parent.
 func NewScope(parent *Scope) *Scope {
-	return &Scope{Parent: parent, vars: make(map[string]struct{})}
+	return &Scope{Parent: parent, vars: make(map[string]ast.Pos)}
 }
 
 // Define adds a name to the current scope. Shadowing across scopes is disallowed;
 // any name present in an ancestor or current scope triggers a ShadowingError.
 func (s *Scope) Define(name string, pos ast.Pos) error {
 	for sc := s; sc != nil; sc = sc.Parent {
-		if _, exists := sc.vars[name]; exists {
-			return ShadowingError{Name: name, P: pos}
+		if defPos, exists := sc.vars[name]; exists {
+			return ShadowingError{Name: name, P: pos, Def: defPos}
 		}
 	}
-	s.vars[name] = struct{}{}
+	s.vars[name] = pos
 	return nil
 }
 

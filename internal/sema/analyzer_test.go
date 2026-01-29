@@ -197,6 +197,9 @@ func TestAnalyze_NoShadowInFnParams(t *testing.T) {
 	if !errors.As(errs[0], &sh) {
 		t.Fatalf("expected ShadowingError, got %T", errs[0])
 	}
+	if sh.Def.Line != 1 || sh.Def.Column != 1 {
+		t.Fatalf("expected def position 1:1, got %d:%d", sh.Def.Line, sh.Def.Column)
+	}
 }
 
 func TestAnalyze_NoShadowInNestedSet(t *testing.T) {
@@ -213,5 +216,8 @@ func TestAnalyze_NoShadowInNestedSet(t *testing.T) {
 	var sh ShadowingError
 	if !errors.As(errs[0], &sh) {
 		t.Fatalf("expected ShadowingError, got %T", errs[0])
+	}
+	if sh.Def.Line != 1 || sh.Def.Column != 1 {
+		t.Fatalf("expected def position 1:1, got %d:%d", sh.Def.Line, sh.Def.Column)
 	}
 }

@@ -49,11 +49,13 @@ func (e ReservedNameError) Error() string {
 }
 
 // ShadowingError is raised when a name is redefined in an enclosing scope.
+// P is the shadowing position; Def is the original definition position.
 type ShadowingError struct {
 	Name string
 	P    ast.Pos
+	Def  ast.Pos
 }
 
 func (e ShadowingError) Error() string {
-	return fmt.Sprintf("name %q already defined in an enclosing scope at %d:%d", e.Name, e.P.Line, e.P.Column)
+	return fmt.Sprintf("name %q already defined in an enclosing scope at %d:%d (original at %d:%d)", e.Name, e.P.Line, e.P.Column, e.Def.Line, e.Def.Column)
 }
