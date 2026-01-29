@@ -74,9 +74,6 @@ func AnalyzeDefinitionsWithLimit(prog *ast.Program, limit int) AnalysisResult {
 			if err := ValidateIdentifier(fn.Name, fn.P); err != nil {
 				res.Errors = append(res.Errors, err)
 			}
-			if err := res.Global.Define(fn.Name, fn.P); err != nil {
-				res.Errors = append(res.Errors, err)
-			}
 			if err := reg.Define(fn.Name, len(fn.Params), fn.P); err != nil {
 				res.Errors = append(res.Errors, err)
 			}
