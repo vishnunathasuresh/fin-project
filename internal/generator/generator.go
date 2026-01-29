@@ -60,6 +60,9 @@ func (g *BatchGenerator) emitFunction(fn *ast.FnDecl) error {
 
 // emitStmt lowers a statement; returns an error for unsupported nodes.
 func (g *BatchGenerator) emitStmt(stmt ast.Statement) error {
+	if stmt == nil {
+		return errUnsupportedStmt(ast.Pos{}, stmt)
+	}
 	switch s := stmt.(type) {
 	case *ast.EchoStmt:
 		lowerEchoStmt(g.ctx, s)
@@ -76,9 +79,9 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) error {
 	case *ast.CallStmt:
 		lowerCallStmt(g.ctx, s)
 	case *ast.FnDecl:
-		return fmt.Errorf("function declarations should be lifted before lowering")
+		return errFunctionNotLifted(s.Pos(), s.Name)
 	default:
-		return fmt.Errorf("unsupported statement type %T", stmt)
+		return errUnsupportedStmt(s.Pos(), stmt)
 	}
 	return nil
 }

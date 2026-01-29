@@ -29,6 +29,33 @@ func TestGenerate_TopLevelSetEchoRun(t *testing.T) {
 	}
 }
 
+func TestGenerate_UnsupportedStmt(t *testing.T) {
+	g := NewBatchGenerator()
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.ReturnStmt{},
+	}}
+
+	_, err := g.Generate(prog)
+	if err == nil {
+		t.Fatalf("expected error for unsupported stmt")
+	}
+
+	if _, ok := err.(*GeneratorError); !ok {
+		t.Fatalf("expected GeneratorError, got %T", err)
+	}
+}
+
+func TestGenerate_FunctionNotLifted(t *testing.T) {
+	g := NewBatchGenerator()
+	fn := &ast.FnDecl{Name: "x"}
+
+	if err := g.emitStmt(fn); err == nil {
+		t.Fatalf("expected error for unlifted function")
+	} else if _, ok := err.(*GeneratorError); !ok {
+		t.Fatalf("expected GeneratorError, got %T", err)
+	}
+}
+
 func TestGenerate_Call(t *testing.T) {
 	g := NewBatchGenerator()
 	prog := &ast.Program{Statements: []ast.Statement{
