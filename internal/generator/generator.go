@@ -51,21 +51,7 @@ func (g *BatchGenerator) emitTopLevel(stmt ast.Statement) {
 }
 
 func (g *BatchGenerator) emitFunction(fn *ast.FnDecl) {
-	label := mangleFunc(fn.Name)
-	// Function body
-	g.ctx.emitLine("goto :eof")
-	g.ctx.emitLine(":" + label)
-	g.ctx.emitLine("setlocal")
-	for i, p := range fn.Params {
-		g.ctx.emitLine(fmt.Sprintf("set %s=%%%d", p, i+1))
-	}
-	g.ctx.pushIndent()
-	for _, stmt := range fn.Body {
-		g.emitStmt(stmt)
-	}
-	g.ctx.popIndent()
-	g.ctx.emitLine("endlocal")
-	g.ctx.emitLine("goto :eof")
+	lowerFnDecl(g.ctx, fn, g.emitStmt)
 }
 
 // emitStmt lowers a statement; currently a stub to maintain compilation until lowering is implemented.
@@ -83,6 +69,8 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) {
 		lowerForStmt(g.ctx, s, g.emitStmt)
 	case *ast.WhileStmt:
 		lowerWhileStmt(g.ctx, s, g.emitStmt)
+	case *ast.CallStmt:
+		lowerCallStmt(g.ctx, s)
 	default:
 		// TODO: lower other statements (if/for/while/etc.)
 	}

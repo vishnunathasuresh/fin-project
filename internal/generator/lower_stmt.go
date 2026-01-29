@@ -81,3 +81,34 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement)) {
 	ctx.emitLine(fmt.Sprintf("goto %s", start))
 	ctx.emitLine(":" + end)
 }
+
+// lowerFnDecl lowers a function declaration to a batch label with parameter mapping.
+func lowerFnDecl(ctx *Context, fn *ast.FnDecl, emit func(ast.Statement)) {
+	label := mangleFunc(fn.Name)
+	ctx.emitLine("goto :eof")
+	ctx.emitLine(":" + label)
+	ctx.emitLine("setlocal")
+	for i, p := range fn.Params {
+		ctx.emitLine(fmt.Sprintf("set %s=%%%d", p, i+1))
+	}
+	ctx.pushIndent()
+	for _, stmt := range fn.Body {
+		emit(stmt)
+	}
+	ctx.popIndent()
+	ctx.emitLine("endlocal")
+	ctx.emitLine("goto :eof")
+}
+
+// lowerCallStmt lowers a function call to a batch call label.
+func lowerCallStmt(ctx *Context, s *ast.CallStmt) {
+	label := mangleFunc(s.Name)
+	args := ""
+	for i, arg := range s.Args {
+		if i > 0 {
+			args += " "
+		}
+		args += lowerExpr(arg)
+	}
+	ctx.emitLine(fmt.Sprintf("call :%s %s", label, args))
+}

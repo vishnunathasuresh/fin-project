@@ -29,6 +29,73 @@ func TestGenerate_TopLevelSetEchoRun(t *testing.T) {
 	}
 }
 
+func TestGenerate_Call(t *testing.T) {
+	g := NewBatchGenerator()
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.FnDecl{
+			Name:   "greet",
+			Params: []string{"name"},
+			Body: []ast.Statement{
+				&ast.EchoStmt{Value: &ast.IdentExpr{Name: "name"}},
+			},
+		},
+		&ast.CallStmt{Name: "greet", Args: []ast.Expr{&ast.StringLit{Value: "Bob"}}},
+	}}
+
+	out, err := g.Generate(prog)
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	want := "@echo off\n" +
+		"call :fn_greet Bob\n" +
+		"goto :eof\n" +
+		":fn_greet\n" +
+		"setlocal\n" +
+		"set name=%1\n" +
+		"    echo %name%\n" +
+		"endlocal\n" +
+		"goto :eof\n"
+
+	if out != want {
+		t.Fatalf("unexpected output:\n%s", out)
+	}
+}
+
+func TestGenerate_Function(t *testing.T) {
+	g := NewBatchGenerator()
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.FnDecl{
+			Name:   "greet",
+			Params: []string{"name"},
+			Body: []ast.Statement{
+				&ast.EchoStmt{Value: &ast.StringLit{Value: "Hi"}},
+				&ast.EchoStmt{Value: &ast.IdentExpr{Name: "name"}},
+			},
+		},
+		// Top-level call should remain as-is (call lowering TBD), but function body must be emitted correctly.
+	}}
+
+	out, err := g.Generate(prog)
+	if err != nil {
+		t.Fatalf("Generate returned error: %v", err)
+	}
+
+	want := "@echo off\n" +
+		"goto :eof\n" +
+		":fn_greet\n" +
+		"setlocal\n" +
+		"set name=%1\n" +
+		"    echo Hi\n" +
+		"    echo %name%\n" +
+		"endlocal\n" +
+		"goto :eof\n"
+
+	if out != want {
+		t.Fatalf("unexpected output:\n%s", out)
+	}
+}
+
 func TestGenerate_IfElse(t *testing.T) {
 	g := NewBatchGenerator()
 	prog := &ast.Program{Statements: []ast.Statement{
