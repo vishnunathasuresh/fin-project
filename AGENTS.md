@@ -310,6 +310,118 @@ Lexer must never panic.
 * Reserved names protected.
 * Duplicate function names forbidden.
 
+PART I — REAL GENERATOR ARCHITECTURE
+🎯 Generator’s Responsibility (Authoritative)
+
+The generator must:
+
+Convert a semantically validated AST into deterministic, readable, correct Windows Batch code.
+
+It must not:
+
+re-parse
+
+re-check semantics
+
+inspect tokens
+
+guess intent
+
+🧱 High-Level Architecture
+Validated AST
+   ↓
+Lowering (AST → IR-like ops)
+   ↓
+Batch Emission (IR → text)
+   ↓
+Final .bat
+
+
+We separate concerns to keep this maintainable.
+
+📁 Directory Structure
+internal/generator/
+ ├── generator.go      # public API
+ ├── context.go        # state (labels, vars, scopes)
+ ├── lower_stmt.go     # statements → ops
+ ├── lower_expr.go     # expressions → batch fragments
+ ├── runtime.go        # helpers (labels, setlocal)
+ ├── emit.go           # string emission
+ ├── names.go          # deterministic name mangling
+ └── errors.go         # generator errors
+
+
+This mirrors real compiler backends.
+
+🧠 Core Concepts
+1. Generator Context (Critical)
+
+Holds all mutable state:
+
+type Context struct {
+    labelCounter int
+    indent       int
+    out          *strings.Builder
+
+    varMap   map[string]string
+    funcMap  map[string]string
+}
+
+
+Rules:
+
+No globals
+
+No randomness
+
+Deterministic naming
+
+2. Lowering Phase (AST → Ops)
+
+We lower high-level constructs into batch-compatible structures.
+
+Examples:
+
+Fin construct	Batch lowering
+function	label + CALL
+while	labels + IF + GOTO
+list	env var expansion
+map	prefixed vars
+if	IF (...) ELSE (...)
+
+This is where language meaning is preserved.
+
+3. Emission Phase (Ops → Text)
+
+Only string formatting:
+
+indentation
+
+newlines
+
+escaping
+
+No logic.
+
+🧾 Generator Public API
+
+📄 generator.go
+
+package generator
+
+import "fin/internal/ast"
+
+type Generator interface {
+    Generate(p *ast.Program) (string, error)
+}
+
+
+Concrete implementation:
+
+type BatchGenerator struct {
+    ctx *Context
+}
+
 ---
 
 ## 9. Batch Code Generation Rules
