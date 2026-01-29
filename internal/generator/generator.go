@@ -72,9 +72,9 @@ func (g *BatchGenerator) emitFunction(fn *ast.FnDecl) {
 func (g *BatchGenerator) emitStmt(stmt ast.Statement) {
 	switch s := stmt.(type) {
 	case *ast.EchoStmt:
-		g.ctx.emitLine("echo " + lowerExpr(s.Value))
+		lowerEchoStmt(g.ctx, s)
 	case *ast.RunStmt:
-		g.ctx.emitLine(lowerExpr(s.Command))
+		lowerRunStmt(g.ctx, s)
 	case *ast.SetStmt:
 		lowerSetStmt(g.ctx, s)
 	case *ast.IfStmt:
