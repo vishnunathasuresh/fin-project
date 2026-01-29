@@ -142,6 +142,48 @@ func TestAnalyze_CallOK(t *testing.T) {
 	}
 }
 
+func TestAnalyzeDefinitions_TracksFnScope(t *testing.T) {
+	fn := &ast.FnDecl{Name: "foo", Params: []string{"p"}, Body: []ast.Statement{
+		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+	}, P: ast.Pos{Line: 1, Column: 1}}
+	prog := &ast.Program{Statements: []ast.Statement{fn}}
+	res := AnalyzeDefinitions(prog)
+	if len(res.Errors) != 0 {
+		t.Fatalf("unexpected errors: %v", res.Errors)
+	}
+	scope, ok := res.FuncScopes[fn]
+	if !ok || scope == nil {
+		t.Fatalf("expected function scope recorded")
+	}
+	if _, found := scope.Lookup("p"); !found {
+		t.Fatalf("expected param p in function scope")
+	}
+	if _, found := scope.Lookup("x"); !found {
+		t.Fatalf("expected set variable x in function scope")
+	}
+}
+
+func TestAnalyzeDefinitions_TracksForScope(t *testing.T) {
+	forStmt := &ast.ForStmt{Var: "i", Start: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 10}}, End: &ast.NumberLit{Value: "3", P: ast.Pos{Line: 1, Column: 15}}, Body: []ast.Statement{
+		&ast.SetStmt{Name: "j", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+	}, P: ast.Pos{Line: 1, Column: 1}}
+	prog := &ast.Program{Statements: []ast.Statement{forStmt}}
+	res := AnalyzeDefinitions(prog)
+	if len(res.Errors) != 0 {
+		t.Fatalf("unexpected errors: %v", res.Errors)
+	}
+	scope, ok := res.ForScopes[forStmt]
+	if !ok || scope == nil {
+		t.Fatalf("expected for-loop scope recorded")
+	}
+	if _, found := scope.Lookup("i"); !found {
+		t.Fatalf("expected loop var i in scope")
+	}
+	if _, found := scope.Lookup("j"); !found {
+		t.Fatalf("expected set var j in loop scope")
+	}
+}
+
 func TestAnalyze_NoShadowInFnParams(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
 		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
@@ -150,6 +192,10 @@ func TestAnalyze_NoShadowInFnParams(t *testing.T) {
 	errs := Analyze(prog)
 	if len(errs) == 0 {
 		t.Fatalf("expected shadowing error for param x")
+	}
+	var sh ShadowingError
+	if !errors.As(errs[0], &sh) {
+		t.Fatalf("expected ShadowingError, got %T", errs[0])
 	}
 }
 
@@ -163,5 +209,9 @@ func TestAnalyze_NoShadowInNestedSet(t *testing.T) {
 	errs := Analyze(prog)
 	if len(errs) == 0 {
 		t.Fatalf("expected shadowing error for nested set y")
+	}
+	var sh ShadowingError
+	if !errors.As(errs[0], &sh) {
+		t.Fatalf("expected ShadowingError, got %T", errs[0])
 	}
 }

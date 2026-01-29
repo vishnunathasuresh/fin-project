@@ -1,6 +1,6 @@
 package sema
 
-import "fmt"
+import "github.com/vishnunath-suresh/fin-project/internal/ast"
 
 // Scope represents a lexical scope with an optional parent and a table of names.
 type Scope struct {
@@ -14,11 +14,11 @@ func NewScope(parent *Scope) *Scope {
 }
 
 // Define adds a name to the current scope. Shadowing across scopes is disallowed;
-// any name present in an ancestor or current scope triggers an error.
-func (s *Scope) Define(name string) error {
+// any name present in an ancestor or current scope triggers a ShadowingError.
+func (s *Scope) Define(name string, pos ast.Pos) error {
 	for sc := s; sc != nil; sc = sc.Parent {
 		if _, exists := sc.vars[name]; exists {
-			return fmt.Errorf("name %q already defined in an enclosing scope", name)
+			return ShadowingError{Name: name, P: pos}
 		}
 	}
 	s.vars[name] = struct{}{}

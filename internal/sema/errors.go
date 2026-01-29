@@ -47,3 +47,13 @@ type ReservedNameError struct {
 func (e ReservedNameError) Error() string {
 	return fmt.Sprintf("reserved name %q at %d:%d — choose a different identifier", e.Name, e.P.Line, e.P.Column)
 }
+
+// ShadowingError is raised when a name is redefined in an enclosing scope.
+type ShadowingError struct {
+	Name string
+	P    ast.Pos
+}
+
+func (e ShadowingError) Error() string {
+	return fmt.Sprintf("name %q already defined in an enclosing scope at %d:%d", e.Name, e.P.Line, e.P.Column)
+}
