@@ -16,6 +16,36 @@ func TestLowerSetStmt_Scalar(t *testing.T) {
 	}
 }
 
+func TestLowerWhileStmt(t *testing.T) {
+	ctx := NewContext()
+	lowerWhileStmt(ctx, &ast.WhileStmt{
+		Cond: &ast.BoolLit{Value: true},
+		Body: []ast.Statement{
+			&ast.EchoStmt{Value: &ast.StringLit{Value: "loop"}},
+		},
+	}, func(st ast.Statement) {
+		switch s := st.(type) {
+		case *ast.EchoStmt:
+			lowerEchoStmt(ctx, s)
+		default:
+			t.Fatalf("unexpected stmt type %T", s)
+		}
+	})
+
+	want := strings.Join([]string{
+		":" + whileStartLabel(1),
+		"if not true goto " + whileEndLabel(1),
+		"echo loop",
+		"goto " + whileStartLabel(1),
+		":" + whileEndLabel(1),
+		"",
+	}, "\n")
+
+	if ctx.String() != want {
+		t.Fatalf("unexpected output:\n%s", ctx.String())
+	}
+}
+
 func TestLowerIfStmt_Nested(t *testing.T) {
 	ctx := NewContext()
 	lowerIfStmt(ctx, &ast.IfStmt{
@@ -111,6 +141,36 @@ func TestLowerRunStmt(t *testing.T) {
 	ctx := NewContext()
 	lowerRunStmt(ctx, &ast.RunStmt{Command: &ast.StringLit{Value: "git status"}})
 	want := "git status\n"
+	if ctx.String() != want {
+		t.Fatalf("unexpected output:\n%s", ctx.String())
+	}
+}
+
+func TestLowerForStmt(t *testing.T) {
+	ctx := NewContext()
+	lowerForStmt(ctx, &ast.ForStmt{
+		Var:   "i",
+		Start: &ast.NumberLit{Value: "1"},
+		End:   &ast.NumberLit{Value: "5"},
+		Body: []ast.Statement{
+			&ast.EchoStmt{Value: &ast.IdentExpr{Name: "i"}},
+		},
+	}, func(st ast.Statement) {
+		switch s := st.(type) {
+		case *ast.EchoStmt:
+			lowerEchoStmt(ctx, s)
+		default:
+			t.Fatalf("unexpected stmt type %T", s)
+		}
+	})
+
+	want := strings.Join([]string{
+		"for /L %i in (1,1,5) do (",
+		"    echo %i%",
+		")",
+		"",
+	}, "\n")
+
 	if ctx.String() != want {
 		t.Fatalf("unexpected output:\n%s", ctx.String())
 	}

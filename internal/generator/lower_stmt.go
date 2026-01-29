@@ -53,3 +53,31 @@ func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement)) {
 	}
 	ctx.emitLine(")")
 }
+
+// lowerForStmt lowers a numeric range loop.
+func lowerForStmt(ctx *Context, s *ast.ForStmt, emit func(ast.Statement)) {
+	start := lowerExpr(s.Start)
+	end := lowerExpr(s.End)
+	ctx.emitLine(fmt.Sprintf("for /L %%"+s.Var+" in (%s,1,%s) do (", start, end))
+	ctx.pushIndent()
+	for _, inner := range s.Body {
+		emit(inner)
+	}
+	ctx.popIndent()
+	ctx.emitLine(")")
+}
+
+// lowerWhileStmt lowers a while loop using labels and conditional jumps.
+func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement)) {
+	id := ctx.NextLabel()
+	start := whileStartLabel(id)
+	end := whileEndLabel(id)
+	ctx.emitLine(":" + start)
+	cond := lowerCondition(s.Cond)
+	ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
+	for _, inner := range s.Body {
+		emit(inner)
+	}
+	ctx.emitLine(fmt.Sprintf("goto %s", start))
+	ctx.emitLine(":" + end)
+}

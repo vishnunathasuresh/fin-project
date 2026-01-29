@@ -80,27 +80,9 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) {
 	case *ast.IfStmt:
 		lowerIfStmt(g.ctx, s, g.emitStmt)
 	case *ast.ForStmt:
-		start := lowerExpr(s.Start)
-		end := lowerExpr(s.End)
-		g.ctx.emitLine(fmt.Sprintf("for /L %%"+s.Var+" in (%s,1,%s) do (", start, end))
-		g.ctx.pushIndent()
-		for _, inner := range s.Body {
-			g.emitStmt(inner)
-		}
-		g.ctx.popIndent()
-		g.ctx.emitLine(")")
+		lowerForStmt(g.ctx, s, g.emitStmt)
 	case *ast.WhileStmt:
-		id := g.ctx.NextLabel()
-		start := whileStartLabel(id)
-		end := whileEndLabel(id)
-		g.ctx.emitLine(":" + start)
-		cond := lowerCondition(s.Cond)
-		g.ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
-		for _, inner := range s.Body {
-			g.emitStmt(inner)
-		}
-		g.ctx.emitLine(fmt.Sprintf("goto %s", start))
-		g.ctx.emitLine(":" + end)
+		lowerWhileStmt(g.ctx, s, g.emitStmt)
 	default:
 		// TODO: lower other statements (if/for/while/etc.)
 	}
