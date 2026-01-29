@@ -59,3 +59,13 @@ type ShadowingError struct {
 func (e ShadowingError) Error() string {
 	return fmt.Sprintf("name %q already defined in an enclosing scope at %d:%d (original at %d:%d)", e.Name, e.P.Line, e.P.Column, e.Def.Line, e.Def.Column)
 }
+
+// DepthExceededError is raised when traversal exceeds the configured recursion limit.
+type DepthExceededError struct {
+	Limit int
+	P     ast.Pos
+}
+
+func (e DepthExceededError) Error() string {
+	return fmt.Sprintf("traversal depth exceeded limit %d at %d:%d", e.Limit, e.P.Line, e.P.Column)
+}

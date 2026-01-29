@@ -223,6 +223,68 @@ func TestAnalyze_CallZeroArgEdges(t *testing.T) {
 	}
 }
 
+func TestAnalyzeDefinitionsWithLimit_ExceedsDepth(t *testing.T) {
+	deep := &ast.Program{Statements: []ast.Statement{
+		&ast.WhileStmt{Cond: &ast.BoolLit{Value: true, P: ast.Pos{Line: 1, Column: 1}}, Body: []ast.Statement{
+			&ast.WhileStmt{Cond: &ast.BoolLit{Value: true, P: ast.Pos{Line: 2, Column: 1}}, Body: []ast.Statement{}, P: ast.Pos{Line: 2, Column: 1}},
+		}, P: ast.Pos{Line: 1, Column: 1}},
+	}}
+	res := AnalyzeDefinitionsWithLimit(deep, 1)
+	if len(res.Errors) == 0 {
+		t.Fatalf("expected depth exceeded error")
+	}
+	var de DepthExceededError
+	if !errors.As(res.Errors[0], &de) {
+		t.Fatalf("expected DepthExceededError, got %T", res.Errors[0])
+	}
+}
+
+func TestAnalyzeDefinitionsWithLimit_AllowsWithinLimit(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.WhileStmt{Cond: &ast.BoolLit{Value: true, P: ast.Pos{Line: 1, Column: 1}}, Body: []ast.Statement{}, P: ast.Pos{Line: 1, Column: 1}},
+	}}
+	res := AnalyzeDefinitionsWithLimit(prog, 2)
+	if len(res.Errors) != 0 {
+		t.Fatalf("expected no errors within depth limit, got %v", res.Errors)
+	}
+}
+
+func TestAnalyzer_WrapperCollectsErrors(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+	}}
+	a := NewAnalyzer(prog, 0)
+	a.Run()
+	if len(a.Errors()) == 0 {
+		t.Fatalf("expected errors collected by analyzer")
+	}
+}
+
+func TestAnalyzer_PublicAPI_NoErrorsReturnsNil(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.FnDecl{Name: "f", Params: []string{}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.CallStmt{Name: "f", Args: nil, P: ast.Pos{Line: 2, Column: 1}},
+	}}
+	a := New()
+	err := a.Analyze(prog)
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+}
+
+func TestAnalyzer_PublicAPI_AggregatesErrors(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+	}}
+	a := New()
+	err := a.Analyze(prog)
+	if err == nil {
+		t.Fatalf("expected aggregated error")
+	}
+}
+
 func TestAnalyzeDefinitions_TracksFnScope(t *testing.T) {
 	fn := &ast.FnDecl{Name: "foo", Params: []string{"p"}, Body: []ast.Statement{
 		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
