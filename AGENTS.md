@@ -563,3 +563,4 @@ Agents must:
 * Prefer correctness over cleverness.
 * Add tests for every change.
 * Keep code readable and documented.
+* Treat generator golden tests as the authority on batch output; any intentional behavior change must update the golden outputs explicitly.

@@ -1,10 +1,13 @@
 package generator
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/vishnunath-suresh/fin-project/internal/ast"
 	"github.com/vishnunath-suresh/fin-project/internal/lexer"
 	"github.com/vishnunath-suresh/fin-project/internal/parser"
+	"github.com/vishnunath-suresh/fin-project/internal/sema"
 )
 
 type goldenCase struct {
@@ -65,6 +68,24 @@ func TestGenerator_Golden(t *testing.T) {
 	}
 }
 
+func TestGenerator_Golden_Negative_SemaError(t *testing.T) {
+	// Duplicate function should be caught by sema; generator should not run.
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.FnDecl{Name: "foo", P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "foo", P: ast.Pos{Line: 2, Column: 1}},
+	}}
+
+	a := sema.New()
+	if err := a.Analyze(prog); err == nil {
+		t.Fatalf("expected semantic error for duplicate function")
+	} else {
+		var df sema.DuplicateFunctionError
+		if !errors.As(err, &df) {
+			t.Fatalf("expected DuplicateFunctionError, got %T", err)
+		}
+	}
+}
+
 func generateFromSource(t *testing.T, src string) string {
 	t.Helper()
 
@@ -82,4 +103,25 @@ func generateFromSource(t *testing.T, src string) string {
 		t.Fatalf("generate error: %v", err)
 	}
 	return out
+}
+
+func generateFromSourceWithError(t *testing.T, src string) (string, error) {
+	t.Helper()
+
+	l := lexer.New(src)
+	tokens := parser.CollectTokens(l)
+	p := parser.New(tokens)
+	prog := p.ParseProgram()
+	if errs := p.Errors(); len(errs) > 0 {
+		return "", errs[0]
+	}
+
+	// Run semantic analysis; expect errors to surface here for negative cases.
+	a := sema.New()
+	if err := a.Analyze(prog); err != nil {
+		return "", err
+	}
+
+	g := NewBatchGenerator()
+	return g.Generate(prog)
 }
