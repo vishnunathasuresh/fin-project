@@ -32,6 +32,8 @@ func main() {
 		checkCmd(os.Args[2:])
 	case "ast":
 		astCmd(os.Args[2:])
+	case "fmt":
+		fmtCmd(os.Args[2:])
 	case "version":
 		fmt.Println(version)
 		os.Exit(0)
@@ -85,6 +87,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  fin build <file.fin> [-o output.bat]\n")
 	fmt.Fprintf(os.Stderr, "  fin check <file.fin>\n")
 	fmt.Fprintf(os.Stderr, "  fin ast <file.fin>\n")
+	fmt.Fprintf(os.Stderr, "  fin fmt <file.fin>\n")
 	fmt.Fprintf(os.Stderr, "  fin version\n")
 }
 
@@ -168,6 +171,24 @@ func astCmd(args []string) {
 	}
 	fmt.Print(ast.Format(prog))
 	os.Exit(0)
+}
+
+// fmtCmd is a stub formatter: parsing succeeds, but formatting is not yet implemented.
+func fmtCmd(args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "fmt requires exactly one input file")
+		os.Exit(2)
+	}
+	if err := validateFinPath(args[0]); err != nil {
+		printDiagnostics(os.Stderr, args[0], err)
+		os.Exit(1)
+	}
+	if _, err := loadAndAnalyze(args[0]); err != nil {
+		printDiagnostics(os.Stderr, args[0], err)
+		os.Exit(1)
+	}
+	fmt.Fprintln(os.Stderr, "fin fmt is not implemented yet; no changes were made")
+	os.Exit(1)
 }
 
 func loadAndAnalyze(path string) (*ast.Program, error) {
