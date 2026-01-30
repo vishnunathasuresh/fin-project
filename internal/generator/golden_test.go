@@ -32,8 +32,10 @@ func TestGenerator_Golden(t *testing.T) {
 				":fn_greet\n" +
 				"setlocal\n" +
 				"set name=%1\n" +
+				"set ret_greet_tmp_1=\n" +
 				"    echo %name%\n" +
-				"endlocal\n" +
+				":fn_ret_greet\n" +
+				"endlocal & set fn_greet_ret=%ret_greet_tmp_1%\n" +
 				"goto :eof\n",
 		},
 		{
@@ -47,14 +49,18 @@ func TestGenerator_Golden(t *testing.T) {
 				"end\n",
 			expected: "@echo off\n" +
 				"set total=0\n" +
-				"for /L %i in (1,1,3) do (\n" +
+				"set i=1\n" +
+				":loop_continue_1\n" +
+				"if %i% GTR 3 goto loop_break_1\n" +
 				"    echo %i%\n" +
-				")\n" +
-				":while_start_1\n" +
-				"if not false goto while_end_1\n" +
+				"set /a i=%i%+1\n" +
+				"goto loop_continue_1\n" +
+				":loop_break_1\n" +
+				":while_start_2\n" +
+				"if not false goto while_end_2\n" +
 				"echo %loop%\n" +
-				"goto while_start_1\n" +
-				":while_end_1\n",
+				"goto while_start_2\n" +
+				":while_end_2\n",
 		},
 	}
 
@@ -122,6 +128,11 @@ func generateFromSourceWithError(t *testing.T, src string) (string, error) {
 		return "", err
 	}
 
+	g := NewBatchGenerator()
+	return g.Generate(prog)
+}
+
+func generateDirect(prog *ast.Program) (string, error) {
 	g := NewBatchGenerator()
 	return g.Generate(prog)
 }

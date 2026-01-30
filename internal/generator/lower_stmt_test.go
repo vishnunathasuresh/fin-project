@@ -176,9 +176,13 @@ func TestLowerForStmt(t *testing.T) {
 	}
 
 	want := strings.Join([]string{
-		"for /L %i in (1,1,5) do (",
+		"set i=1",
+		":loop_continue_1",
+		"if %i% GTR 5 goto loop_break_1",
 		"    echo %i%",
-		")",
+		"set /a i=%i%+1",
+		"goto loop_continue_1",
+		":loop_break_1",
 		"",
 	}, "\n")
 

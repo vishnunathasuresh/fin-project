@@ -60,19 +60,30 @@ func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) er
 	return nil
 }
 
-// lowerForStmt lowers a numeric range loop.
+// lowerForStmt lowers a numeric range loop using labels to support break/continue.
 func lowerForStmt(ctx *Context, s *ast.ForStmt, emit func(ast.Statement) error) error {
-	start := lowerExpr(s.Start)
-	end := lowerExpr(s.End)
-	ctx.emitLine(fmt.Sprintf("for /L %%"+s.Var+" in (%s,1,%s) do (", start, end))
+	startVal := lowerExpr(s.Start)
+	endVal := lowerExpr(s.End)
+	id := ctx.NextLabel()
+	startLbl := loopContinueLabel(id)
+	endLbl := loopBreakLabel(id)
+	ctx.emitLine(fmt.Sprintf("set %s=%s", s.Var, startVal))
+	ctx.emitLine(":" + startLbl)
+	ctx.emitLine(fmt.Sprintf("if %%%s%% GTR %s goto %s", s.Var, endVal, endLbl))
+	ctx.pushLoop(endLbl, startLbl)
 	ctx.pushIndent()
 	for _, inner := range s.Body {
 		if err := emit(inner); err != nil {
+			ctx.popIndent()
+			ctx.popLoop()
 			return err
 		}
 	}
 	ctx.popIndent()
-	ctx.emitLine(")")
+	ctx.popLoop()
+	ctx.emitLine(fmt.Sprintf("set /a %s=%%%s%%+1", s.Var, s.Var))
+	ctx.emitLine(fmt.Sprintf("goto %s", startLbl))
+	ctx.emitLine(":" + endLbl)
 	return nil
 }
 
@@ -84,11 +95,14 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) err
 	ctx.emitLine(":" + start)
 	cond := lowerCondition(s.Cond)
 	ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
+	ctx.pushLoop(end, start)
 	for _, inner := range s.Body {
 		if err := emit(inner); err != nil {
+			ctx.popLoop()
 			return err
 		}
 	}
+	ctx.popLoop()
 	ctx.emitLine(fmt.Sprintf("goto %s", start))
 	ctx.emitLine(":" + end)
 	return nil
@@ -97,20 +111,30 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) err
 // lowerFnDecl lowers a function declaration to a batch label with parameter mapping.
 func lowerFnDecl(ctx *Context, fn *ast.FnDecl, emit func(ast.Statement) error) error {
 	label := mangleFunc(fn.Name)
+	retLabel := fnReturnLabel(fn.Name)
+	retTemp := mangleTemp("ret_"+fn.Name, ctx.NextLabel())
+	outVar := fmt.Sprintf("%s_ret", mangleFunc(fn.Name))
+	ret := returnTarget{label: retLabel, tempVar: retTemp, outVar: outVar}
 	ctx.emitLine("goto :eof")
 	ctx.emitLine(":" + label)
 	ctx.emitLine("setlocal")
 	for i, p := range fn.Params {
 		ctx.emitLine(fmt.Sprintf("set %s=%%%d", p, i+1))
 	}
+	ctx.emitLine(fmt.Sprintf("set %s=", retTemp))
+	ctx.pushReturn(ret.label, ret.tempVar, ret.outVar)
 	ctx.pushIndent()
 	for _, stmt := range fn.Body {
 		if err := emit(stmt); err != nil {
+			ctx.popReturn()
+			ctx.popIndent()
 			return err
 		}
 	}
 	ctx.popIndent()
-	ctx.emitLine("endlocal")
+	ctx.popReturn()
+	ctx.emitLine(":" + ret.label)
+	ctx.emitLine(fmt.Sprintf("endlocal & set %s=%%%s%%", ret.outVar, ret.tempVar))
 	ctx.emitLine("goto :eof")
 	return nil
 }
@@ -127,6 +151,39 @@ func lowerCallStmt(ctx *Context, s *ast.CallStmt) {
 		b.WriteString(escapeCallArg(lowered))
 	}
 	ctx.emitLine(fmt.Sprintf("call :%s %s", label, b.String()))
+}
+
+// lowerReturnStmt currently emits a stub; return values are not supported.
+func lowerReturnStmt(ctx *Context, s *ast.ReturnStmt) error {
+	if s.Value != nil {
+		if ret, ok := ctx.currentReturn(); ok {
+			ctx.emitLine(fmt.Sprintf("set %s=%s", ret.tempVar, lowerExpr(s.Value)))
+			ctx.emitLine("goto " + ret.label)
+			return nil
+		}
+		return errUnsupportedStmt(s.Pos(), s)
+	}
+	if ret, ok := ctx.currentReturn(); ok {
+		ctx.emitLine("goto " + ret.label)
+		return nil
+	}
+	return errUnsupportedStmt(s.Pos(), s)
+}
+
+func lowerBreakStmt(ctx *Context, s *ast.BreakStmt) error {
+	if labels, ok := ctx.currentLoop(); ok {
+		ctx.emitLine("goto " + labels.breakLabel)
+		return nil
+	}
+	return errUnsupportedStmt(s.Pos(), s)
+}
+
+func lowerContinueStmt(ctx *Context, s *ast.ContinueStmt) error {
+	if labels, ok := ctx.currentLoop(); ok {
+		ctx.emitLine("goto " + labels.continueLabel)
+		return nil
+	}
+	return errUnsupportedStmt(s.Pos(), s)
 }
 
 // escapeCallArg escapes batch specials and quotes when needed.

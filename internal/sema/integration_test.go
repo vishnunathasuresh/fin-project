@@ -86,6 +86,23 @@ func TestIntegration_ReservedNameRejected(t *testing.T) {
 	}
 }
 
+func TestIntegration_ReturnOutsideFunction(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.ReturnStmt{P: ast.Pos{Line: 1, Column: 1}},
+	}}
+	res := AnalyzeDefinitions(prog)
+	if len(res.Errors) == 0 {
+		t.Fatalf("expected return-outside-function error")
+	}
+	var rof ReturnOutsideFunctionError
+	if !errors.As(res.Errors[0], &rof) {
+		t.Fatalf("expected ReturnOutsideFunctionError, got %T", res.Errors[0])
+	}
+	if rof.P.Line != 1 || rof.P.Column != 1 {
+		t.Fatalf("expected position 1:1, got %d:%d", rof.P.Line, rof.P.Column)
+	}
+}
+
 func TestIntegration_DeepNesting_NoPanic(t *testing.T) {
 	depth := 200
 	stmt := ast.Statement(&ast.WhileStmt{Cond: &ast.BoolLit{Value: true, P: ast.Pos{Line: 1, Column: 1}}, Body: nil, P: ast.Pos{Line: 1, Column: 1}})

@@ -78,6 +78,14 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) error {
 		return lowerWhileStmt(g.ctx, s, g.emitStmt)
 	case *ast.CallStmt:
 		lowerCallStmt(g.ctx, s)
+	case *ast.ReturnStmt:
+		if err := lowerReturnStmt(g.ctx, s); err != nil {
+			return err
+		}
+	case *ast.BreakStmt:
+		return lowerBreakStmt(g.ctx, s)
+	case *ast.ContinueStmt:
+		return lowerContinueStmt(g.ctx, s)
 	case *ast.FnDecl:
 		return errFunctionNotLifted(s.Pos(), s.Name)
 	default:

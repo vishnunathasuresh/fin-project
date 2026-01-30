@@ -6,11 +6,17 @@ import "github.com/vishnunath-suresh/fin-project/internal/ast"
 type Scope struct {
 	Parent *Scope
 	vars   map[string]ast.Pos
+	isFunc bool
 }
 
 // NewScope creates a new scope with the given parent.
 func NewScope(parent *Scope) *Scope {
 	return &Scope{Parent: parent, vars: make(map[string]ast.Pos)}
+}
+
+// NewFunctionScope marks a scope as belonging to a function body.
+func NewFunctionScope(parent *Scope) *Scope {
+	return &Scope{Parent: parent, vars: make(map[string]ast.Pos), isFunc: true}
 }
 
 // Define adds a name to the current scope. Shadowing across scopes is disallowed;
@@ -34,4 +40,14 @@ func (s *Scope) Lookup(name string) (*Scope, bool) {
 		}
 	}
 	return nil, false
+}
+
+// IsFunctionScope reports whether this scope is within a function body (including ancestors).
+func (s *Scope) IsFunctionScope() bool {
+	for sc := s; sc != nil; sc = sc.Parent {
+		if sc.isFunc {
+			return true
+		}
+	}
+	return false
 }

@@ -32,7 +32,7 @@ func TestGenerate_TopLevelSetEchoRun(t *testing.T) {
 func TestGenerate_UnsupportedStmt(t *testing.T) {
 	g := NewBatchGenerator()
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.ReturnStmt{},
+		&ast.ReturnStmt{Value: &ast.NumberLit{Value: "1"}},
 	}}
 
 	_, err := g.Generate(prog)
@@ -80,8 +80,10 @@ func TestGenerate_Call(t *testing.T) {
 		":fn_greet\n" +
 		"setlocal\n" +
 		"set name=%1\n" +
+		"set ret_greet_tmp_1=\n" +
 		"    echo %name%\n" +
-		"endlocal\n" +
+		":fn_ret_greet\n" +
+		"endlocal & set fn_greet_ret=%ret_greet_tmp_1%\n" +
 		"goto :eof\n"
 
 	if out != want {
@@ -113,9 +115,11 @@ func TestGenerate_Function(t *testing.T) {
 		":fn_greet\n" +
 		"setlocal\n" +
 		"set name=%1\n" +
+		"set ret_greet_tmp_1=\n" +
 		"    echo Hi\n" +
 		"    echo %name%\n" +
-		"endlocal\n" +
+		":fn_ret_greet\n" +
+		"endlocal & set fn_greet_ret=%ret_greet_tmp_1%\n" +
 		"goto :eof\n"
 
 	if out != want {

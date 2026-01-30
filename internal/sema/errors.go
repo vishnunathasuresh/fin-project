@@ -69,3 +69,12 @@ type DepthExceededError struct {
 func (e DepthExceededError) Error() string {
 	return fmt.Sprintf("traversal depth exceeded limit %d at %d:%d", e.Limit, e.P.Line, e.P.Column)
 }
+
+// ReturnOutsideFunctionError is raised when a return is used outside a function body.
+type ReturnOutsideFunctionError struct {
+	P ast.Pos
+}
+
+func (e ReturnOutsideFunctionError) Error() string {
+	return fmt.Sprintf("return used outside function at %d:%d", e.P.Line, e.P.Column)
+}

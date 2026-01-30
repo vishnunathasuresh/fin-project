@@ -149,7 +149,7 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 		analyzeExpr(s.Value, scope, res, depth+1, limit)
 	case *ast.FnDecl:
 		// Name already validated/registered in pass 1; still validate params and body.
-		fnScope := NewScope(scope)
+		fnScope := NewFunctionScope(scope)
 		for _, param := range s.Params {
 			if err := ValidateIdentifier(param, s.P); err != nil {
 				res.Errors = append(res.Errors, err)
@@ -209,6 +209,9 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 	case *ast.RunStmt:
 		analyzeExpr(s.Command, scope, res, depth+1, limit)
 	case *ast.ReturnStmt:
+		if !scope.IsFunctionScope() {
+			res.Errors = append(res.Errors, ReturnOutsideFunctionError{P: s.P})
+		}
 		if s.Value != nil {
 			analyzeExpr(s.Value, scope, res, depth+1, limit)
 		}

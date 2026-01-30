@@ -8,6 +8,8 @@ type Context struct {
 	labelCounter int
 	indent       int
 	out          *strings.Builder
+	loopStack    []loopLabels
+	returnStack  []returnTarget
 }
 
 // NewContext constructs an empty generator context.
@@ -42,3 +44,51 @@ func (c *Context) NextLabel() int {
 
 // String returns the current output buffer.
 func (c *Context) String() string { return c.out.String() }
+
+// loopLabels represents break/continue targets for the current loop.
+type loopLabels struct {
+	breakLabel    string
+	continueLabel string
+}
+
+func (c *Context) pushLoop(breakLabel, continueLabel string) {
+	c.loopStack = append(c.loopStack, loopLabels{breakLabel: breakLabel, continueLabel: continueLabel})
+}
+
+func (c *Context) popLoop() {
+	if len(c.loopStack) == 0 {
+		return
+	}
+	c.loopStack = c.loopStack[:len(c.loopStack)-1]
+}
+
+func (c *Context) currentLoop() (loopLabels, bool) {
+	if len(c.loopStack) == 0 {
+		return loopLabels{}, false
+	}
+	return c.loopStack[len(c.loopStack)-1], true
+}
+
+type returnTarget struct {
+	label   string
+	tempVar string
+	outVar  string
+}
+
+func (c *Context) pushReturn(label, tempVar, outVar string) {
+	c.returnStack = append(c.returnStack, returnTarget{label: label, tempVar: tempVar, outVar: outVar})
+}
+
+func (c *Context) popReturn() {
+	if len(c.returnStack) == 0 {
+		return
+	}
+	c.returnStack = c.returnStack[:len(c.returnStack)-1]
+}
+
+func (c *Context) currentReturn() (returnTarget, bool) {
+	if len(c.returnStack) == 0 {
+		return returnTarget{}, false
+	}
+	return c.returnStack[len(c.returnStack)-1], true
+}
