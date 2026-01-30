@@ -88,7 +88,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  fin build <file.fin> [-o output.bat]\n")
 	fmt.Fprintf(os.Stderr, "  fin check <file.fin>\n")
 	fmt.Fprintf(os.Stderr, "  fin ast <file.fin>\n")
-	fmt.Fprintf(os.Stderr, "  fin fmt <file.fin>\n")
+	fmt.Fprintf(os.Stderr, "  fin fmt [-w] <file.fin>\n")
 	fmt.Fprintf(os.Stderr, "  fin version\n")
 }
 
@@ -175,21 +175,40 @@ func astCmd(args []string) {
 }
 
 func fmtCmd(args []string) {
-	if len(args) != 1 {
+	flags := flag.NewFlagSet("fmt", flag.ExitOnError)
+	flags.SetOutput(os.Stderr)
+	write := flags.Bool("w", false, "write result to (overwrite) file instead of stdout")
+	if err := flags.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if flags.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "fmt requires exactly one input file")
 		os.Exit(2)
 	}
-	if err := validateFinPath(args[0]); err != nil {
-		printDiagnostics(os.Stderr, args[0], err)
+	path := flags.Arg(0)
+	if err := validateFinPath(path); err != nil {
+		printDiagnostics(os.Stderr, path, err)
 		os.Exit(1)
 	}
-	prog, err := loadAndAnalyze(args[0])
+	prog, err := loadAndAnalyze(path)
 	if err != nil {
-		printDiagnostics(os.Stderr, args[0], err)
+		printDiagnostics(os.Stderr, path, err)
 		os.Exit(1)
 	}
 	formatted := format.Format(prog)
-	fmt.Print(formatted)
+	if *write {
+		info, err := os.Stat(path)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := atomicWriteFile(path, []byte(formatted), info.Mode()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	} else {
+		fmt.Print(formatted)
+	}
 	os.Exit(0)
 }
 

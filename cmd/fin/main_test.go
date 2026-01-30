@@ -67,6 +67,52 @@ func TestCLI_Fmt(t *testing.T) {
 	}
 }
 
+func TestCLI_Fmt_Write(t *testing.T) {
+	tmp := t.TempDir()
+	finPath := filepath.Join(tmp, "fmt.fin")
+	orig := strings.Join([]string{
+		"fn a",
+		"    set x 1",
+		"end",
+		"fn b",
+		"    for i in 1..3",
+		"        echo $i",
+		"    end",
+		"end",
+		"",
+	}, "\n")
+	if err := os.WriteFile(finPath, []byte(orig), 0644); err != nil {
+		t.Fatalf("write fin: %v", err)
+	}
+	cmd := exec.Command("go", "run", "./cmd/fin", "fmt", "-w", finPath)
+	cmd.Dir = projectRoot(t)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected fmt -w to succeed (code=%d): %v\noutput: %s", exitCode(err), err, output)
+	}
+	got, err := os.ReadFile(finPath)
+	if err != nil {
+		t.Fatalf("read formatted file: %v", err)
+	}
+	expected := strings.Join([]string{
+		"fn a",
+		"    set x 1",
+		"end",
+		"",
+		"fn b",
+		"    for i in 1 .. 3",
+		"        echo $i",
+		"    end",
+		"end",
+	}, "\n")
+	if string(got) != expected {
+		t.Fatalf("unexpected fmt -w output:\nexpected:\n%s\ngot:\n%s", expected, string(got))
+	}
+	if len(output) != 0 {
+		t.Fatalf("expected no stdout from fmt -w, got: %s", output)
+	}
+}
+
 func TestCLI_Build_Invalid(t *testing.T) {
 	tmp := t.TempDir()
 	finPath := filepath.Join(tmp, "invalid.fin")
