@@ -13,16 +13,29 @@ func Format(prog *ast.Program) string {
 		return ""
 	}
 	var b strings.Builder
-	for i, stmt := range prog.Statements {
+	var prev ast.Statement
+	first := true
+	for _, stmt := range prog.Statements {
 		if stmt == nil {
 			continue
 		}
-		writeStmt(&b, stmt, 0)
-		if i < len(prog.Statements)-1 {
-			b.WriteByte('\n')
+		if !first {
+			if isFnDecl(prev) && isFnDecl(stmt) {
+				b.WriteString("\n\n")
+			} else {
+				b.WriteByte('\n')
+			}
 		}
+		writeStmt(&b, stmt, 0)
+		prev = stmt
+		first = false
 	}
 	return b.String()
+}
+
+func isFnDecl(stmt ast.Statement) bool {
+	_, ok := stmt.(*ast.FnDecl)
+	return ok
 }
 
 func writeStmt(b *strings.Builder, stmt ast.Statement, indent int) {
@@ -63,7 +76,7 @@ func writeStmt(b *strings.Builder, stmt ast.Statement, indent int) {
 		}
 		fmt.Fprintf(b, "%send", ind)
 	case *ast.ForStmt:
-		fmt.Fprintf(b, "%sfor %s in %s..%s\n", ind, s.Var, formatExpr(s.Start), formatExpr(s.End))
+		fmt.Fprintf(b, "%sfor %s in %s .. %s\n", ind, s.Var, formatExpr(s.Start), formatExpr(s.End))
 		for _, inner := range s.Body {
 			writeStmt(b, inner, indent+1)
 			b.WriteByte('\n')

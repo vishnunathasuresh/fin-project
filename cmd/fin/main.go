@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunath-suresh/fin-project/internal/format"
 	"github.com/vishnunath-suresh/fin-project/internal/generator"
 	"github.com/vishnunath-suresh/fin-project/internal/lexer"
 	"github.com/vishnunath-suresh/fin-project/internal/parser"
@@ -173,7 +174,6 @@ func astCmd(args []string) {
 	os.Exit(0)
 }
 
-// fmtCmd is a stub formatter: parsing succeeds, but formatting is not yet implemented.
 func fmtCmd(args []string) {
 	if len(args) != 1 {
 		fmt.Fprintln(os.Stderr, "fmt requires exactly one input file")
@@ -183,12 +183,14 @@ func fmtCmd(args []string) {
 		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
-	if _, err := loadAndAnalyze(args[0]); err != nil {
+	prog, err := loadAndAnalyze(args[0])
+	if err != nil {
 		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
-	fmt.Fprintln(os.Stderr, "fin fmt is not implemented yet; no changes were made")
-	os.Exit(1)
+	formatted := format.Format(prog)
+	fmt.Print(formatted)
+	os.Exit(0)
 }
 
 func loadAndAnalyze(path string) (*ast.Program, error) {
