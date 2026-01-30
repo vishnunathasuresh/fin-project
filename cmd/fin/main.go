@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/vishnunath-suresh/fin-project/internal/ast"
 	"github.com/vishnunath-suresh/fin-project/internal/generator"
@@ -23,7 +24,6 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
-
 	cmd := os.Args[1]
 	switch cmd {
 	case "build":
@@ -40,6 +40,44 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
+}
+
+// printDiagnostics renders errors with file:line:col style and grouping.
+func printDiagnostics(w io.Writer, file string, err error) {
+	if err == nil {
+		return
+	}
+	// Flatten joined errors.
+	var errs []error
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		errs = j.Unwrap()
+	} else {
+		errs = []error{err}
+	}
+	for _, e := range errs {
+		msg := strings.TrimSpace(e.Error())
+		prefix := colorize("error:", red)
+		switch v := e.(type) {
+		case interface{ Pos() ast.Pos }:
+			pos := v.Pos()
+			fmt.Fprintf(w, "%s %s:%d:%d %s\n", prefix, file, pos.Line, pos.Column, msg)
+		default:
+			fmt.Fprintf(w, "%s %s\n", prefix, msg)
+		}
+	}
+}
+
+var (
+	red     = "\x1b[31m"
+	reset   = "\x1b[0m"
+	noColor = os.Getenv("NO_COLOR") != ""
+)
+
+func colorize(s, c string) string {
+	if noColor {
+		return s
+	}
+	return c + s + reset
 }
 
 func usage() {
@@ -70,13 +108,13 @@ func buildCmd(args []string) {
 
 	prog, err := loadAndAnalyze(inPath)
 	if err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, inPath, err)
 		os.Exit(1)
 	}
 
 	out, err := generate(prog)
 	if err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, inPath, err)
 		os.Exit(1)
 	}
 
@@ -97,18 +135,18 @@ func checkCmd(args []string) {
 		os.Exit(2)
 	}
 	if err := validateFinPath(args[0]); err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
 	prog, err := loadAndAnalyze(args[0])
 	if err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
 
 	// If generate detects unsupported nodes, surface it as an error even in check.
 	if _, err := generate(prog); err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
 	os.Exit(0)
@@ -120,12 +158,12 @@ func astCmd(args []string) {
 		os.Exit(2)
 	}
 	if err := validateFinPath(args[0]); err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
 	prog, err := loadAndAnalyze(args[0])
 	if err != nil {
-		printError(os.Stderr, err)
+		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
 	fmt.Print(ast.Format(prog))
