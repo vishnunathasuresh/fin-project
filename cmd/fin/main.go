@@ -16,9 +16,8 @@ import (
 	"github.com/vishnunath-suresh/fin-project/internal/lexer"
 	"github.com/vishnunath-suresh/fin-project/internal/parser"
 	"github.com/vishnunath-suresh/fin-project/internal/sema"
+	"github.com/vishnunath-suresh/fin-project/internal/version"
 )
-
-const version = "0.1.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -36,7 +35,7 @@ func main() {
 	case "fmt":
 		fmtCmd(os.Args[2:])
 	case "version":
-		fmt.Println(version)
+		fmt.Println(version.Version)
 		os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", cmd)
