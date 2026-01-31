@@ -7,11 +7,22 @@
 !define APP_EXE "..\\fin.exe"
 !define APP_VERSION "v1.0.0"
 !define INSTALL_DIR "$PROGRAMFILES64\${APP_NAME}"
+!define PUBLISHER "bfrovrflw"
 
+Name "${APP_NAME} ${APP_VERSION}"
 OutFile "Fin-${APP_VERSION}-Setup.exe"
 InstallDir "${INSTALL_DIR}"
 RequestExecutionLevel admin
 ShowInstDetails show
+
+; Version Information
+VIProductVersion "1.0.0.0"
+VIAddVersionKey "ProductName" "${APP_NAME}"
+VIAddVersionKey "CompanyName" "${PUBLISHER}"
+VIAddVersionKey "LegalCopyright" "© ${PUBLISHER}"
+VIAddVersionKey "FileDescription" "Fin Language Installer"
+VIAddVersionKey "FileVersion" "1.0.0.0"
+VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 
 Page directory
 Page instfiles
