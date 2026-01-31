@@ -4,3 +4,4 @@ sample*
 *.exe
 *.dll
 *.bat
+!build.bat
