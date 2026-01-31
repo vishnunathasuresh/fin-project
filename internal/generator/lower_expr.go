@@ -94,7 +94,7 @@ func trimPercents(s string) string {
 
 var identPlaceholder = regexp.MustCompile(`\$[A-Za-z_][A-Za-z0-9_]*`)
 
-// interpolateString replaces $ident with %ident% and supports escaping $$ -> $.
+// interpolateString replaces $ident, $ident.property, and $ident[index] with batch expansion.
 func interpolateString(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); {
@@ -113,7 +113,47 @@ func interpolateString(s string) string {
 					j++
 				}
 				name := s[i+1 : j]
-				b.WriteString("%" + name + "%")
+
+				// Check for property access ($ident.property)
+				if j < len(s) && s[j] == '.' {
+					k := j + 1
+					if k < len(s) && isIdentStart(s[k]) {
+						k++
+						for k < len(s) && isIdentPart(s[k]) {
+							k++
+						}
+						prop := s[j+1 : k]
+						b.WriteString("!" + name + "_" + prop + "!")
+						i = k
+						continue
+					}
+				}
+
+				// Check for index access ($ident[index])
+				if j < len(s) && s[j] == '[' {
+					k := j + 1
+					// Find matching ]
+					for k < len(s) && s[k] != ']' {
+						k++
+					}
+					if k < len(s) && s[k] == ']' {
+						indexStr := s[j+1 : k]
+						// Check if index is a number literal or variable
+						if isNumericIndex(indexStr) {
+							// Literal index: use !array_N!
+							b.WriteString("!" + name + "_" + indexStr + "!")
+						} else {
+							// Variable index: use !array_!idx!! for delayed expansion
+							// Note: This nested expansion may need special handling
+							b.WriteString("!" + name + "_!" + indexStr + "!!")
+						}
+						i = k + 1
+						continue
+					}
+				}
+
+				// Simple variable
+				b.WriteString("!" + name + "!")
 				i = j
 				continue
 			}
@@ -122,6 +162,18 @@ func interpolateString(s string) string {
 		i++
 	}
 	return b.String()
+}
+
+func isNumericIndex(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func isIdentStart(b byte) bool {

@@ -20,12 +20,28 @@ func lowerSetStmt(ctx *Context, s *ast.SetStmt) {
 			ctx.emitLine(fmt.Sprintf("set %s_%s=%s", s.Name, p.Key, lowerExpr(p.Value)))
 		}
 	case *ast.IndexExpr:
-		// Dynamic index access requires call set for proper expansion
-		// Pattern: call set varname=%%!arrayvar!_!index!%%
-		// Double %% becomes single % after first parse, then call re-evaluates
-		base := trimPercents(lowerExpr(v.Left))
-		idx := trimPercents(lowerExpr(v.Index))
-		ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
+		// Index access depends on whether index is literal or variable
+		left, ok := v.Left.(*ast.IdentExpr)
+		if !ok {
+			// Fallback for complex expressions
+			base := trimPercents(lowerExpr(v.Left))
+			idx := trimPercents(lowerExpr(v.Index))
+			ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
+		} else {
+			base := left.Name
+			switch idxExpr := v.Index.(type) {
+			case *ast.NumberLit:
+				// Literal index: direct access with delayed expansion
+				ctx.emitLine(fmt.Sprintf("set %s=!%s_%s!", s.Name, base, idxExpr.Value))
+			case *ast.IdentExpr:
+				// Variable index: need call set for double delayed expansion
+				ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idxExpr.Name))
+			default:
+				// Complex index expression
+				idx := trimPercents(lowerExpr(v.Index))
+				ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
+			}
+		}
 	default:
 		if isArithmeticExpr(s.Value) {
 			ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Name, lowerExprArithmetic(s.Value)))
@@ -47,12 +63,28 @@ func lowerAssignStmt(ctx *Context, s *ast.AssignStmt) {
 			ctx.emitLine(fmt.Sprintf("set %s_%s=%s", s.Name, p.Key, lowerExpr(p.Value)))
 		}
 	case *ast.IndexExpr:
-		// Dynamic index access requires call set for proper expansion
-		// Pattern: call set varname=%%!arrayvar!_!index!%%
-		// Double %% becomes single % after first parse, then call re-evaluates
-		base := trimPercents(lowerExpr(v.Left))
-		idx := trimPercents(lowerExpr(v.Index))
-		ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
+		// Index access depends on whether index is literal or variable
+		left, ok := v.Left.(*ast.IdentExpr)
+		if !ok {
+			// Fallback for complex expressions
+			base := trimPercents(lowerExpr(v.Left))
+			idx := trimPercents(lowerExpr(v.Index))
+			ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
+		} else {
+			base := left.Name
+			switch idxExpr := v.Index.(type) {
+			case *ast.NumberLit:
+				// Literal index: direct access with delayed expansion
+				ctx.emitLine(fmt.Sprintf("set %s=!%s_%s!", s.Name, base, idxExpr.Value))
+			case *ast.IdentExpr:
+				// Variable index: need call set for double delayed expansion
+				ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idxExpr.Name))
+			default:
+				// Complex index expression
+				idx := trimPercents(lowerExpr(v.Index))
+				ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
+			}
+		}
 	default:
 		if isArithmeticExpr(s.Value) {
 			ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Name, lowerExprArithmetic(s.Value)))
@@ -79,7 +111,81 @@ func isArithmeticExpr(e ast.Expr) bool {
 
 // lowerEchoStmt emits an echo with expression lowering for interpolation.
 func lowerEchoStmt(ctx *Context, s *ast.EchoStmt) {
-	ctx.emitLine("echo " + lowerExpr(s.Value))
+	val := lowerExpr(s.Value)
+	// Escape batch special characters in echo output
+	val = escapeBatchSpecials(val)
+	ctx.emitLine("echo " + val)
+}
+
+// escapeBatchSpecials escapes characters that have special meaning in batch commands.
+// This includes < > | & which need to be prefixed with ^ to be printed literally.
+// Also escapes ! when it appears in a != sequence (not inside variable expansion).
+func escapeBatchSpecials(s string) string {
+	var b strings.Builder
+	inExpand := false
+	expandChar := byte(0)
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+
+		// Track if we're inside a variable expansion
+		if c == '!' || c == '%' {
+			if inExpand && c == expandChar {
+				// End of expansion
+				inExpand = false
+				expandChar = 0
+				b.WriteByte(c)
+				continue
+			} else if !inExpand {
+				// Check if this is the start of a variable expansion (!name!)
+				// or a standalone ! character (like in !=)
+				if c == '!' {
+					// Look ahead to see if this is a variable pattern
+					hasClosing := false
+					for j := i + 1; j < len(s); j++ {
+						if s[j] == '!' {
+							hasClosing = true
+							break
+						}
+						// If we hit a space or special char before closing !, not a var
+						if s[j] == ' ' || s[j] == '=' || s[j] == '<' || s[j] == '>' {
+							break
+						}
+					}
+					if hasClosing && i+1 < len(s) && isIdentStartByte(s[i+1]) {
+						// This is a variable expansion
+						inExpand = true
+						expandChar = c
+						b.WriteByte(c)
+						continue
+					} else {
+						// Standalone !, escape it
+						b.WriteString("^^!")
+						continue
+					}
+				}
+				// Start of % expansion
+				inExpand = true
+				expandChar = c
+			}
+			b.WriteByte(c)
+			continue
+		}
+
+		// Only escape special chars outside of variable expansions
+		if !inExpand {
+			switch c {
+			case '<', '>', '|', '&':
+				b.WriteByte('^')
+			}
+		}
+		b.WriteByte(c)
+	}
+	return b.String()
+}
+
+func isIdentStartByte(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_'
 }
 
 // lowerRunStmt emits a command invocation with expression lowering.
@@ -95,6 +201,11 @@ func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) er
 	if b, ok := s.Cond.(*ast.BinaryExpr); ok {
 		leftVal := lowerExpr(b.Left)
 		rightVal := lowerExpr(b.Right)
+
+		// Check if this is a numeric comparison operator (<, >, <=, >=)
+		if isNumericComparisonOp(b.Op) {
+			return lowerIfComparison(ctx, b, s.Then, s.Else, emit)
+		}
 
 		// Format operand: if it's already a variable expansion (!x!), use as-is
 		// otherwise treat as literal
@@ -256,6 +367,14 @@ func isComparisonOp(op string) bool {
 	return false
 }
 
+func isNumericComparisonOp(op string) bool {
+	switch op {
+	case "<", "<=", ">", ">=":
+		return true
+	}
+	return false
+}
+
 func isBooleanOp(op string) bool {
 	return op == "&&" || op == "||"
 }
@@ -268,18 +387,39 @@ func lowerComparisonCondition(ctx *Context, c *ast.BinaryExpr, endLabel string) 
 	// We need to compute left and right if they're complex expressions
 	leftTemp := ""
 	rightTemp := ""
+	leftExpr := c.Left
+	rightExpr := c.Right
 
 	// Check if left or right contain arithmetic that needs pre-computation
 	if needsPreCompute(c.Left) {
 		leftTemp = mangleTemp("left", ctx.NextLabel())
 		ctx.emitLine(fmt.Sprintf("set /a %s=%s", leftTemp, left))
 		left = leftTemp
+		leftExpr = nil // Mark as temp variable
 	}
 	if needsPreCompute(c.Right) {
 		rightTemp = mangleTemp("right", ctx.NextLabel())
 		ctx.emitLine(fmt.Sprintf("set /a %s=%s", rightTemp, right))
 		right = rightTemp
+		rightExpr = nil // Mark as temp variable
 	}
+
+	// Wrap variables in !...! but not literals
+	formatForCompare := func(val string, expr ast.Expr) string {
+		// If expr is nil, it's a temp variable we created
+		if expr == nil {
+			return fmt.Sprintf("!%s!", val)
+		}
+		switch expr.(type) {
+		case *ast.IdentExpr, *ast.PropertyExpr, *ast.IndexExpr:
+			return fmt.Sprintf("!%s!", val)
+		default:
+			return val
+		}
+	}
+
+	leftCmp := formatForCompare(left, leftExpr)
+	rightCmp := formatForCompare(right, rightExpr)
 
 	// Generate the comparison using if command
 	// Note: We jump to end if condition is FALSE (to exit loop)
@@ -287,17 +427,17 @@ func lowerComparisonCondition(ctx *Context, c *ast.BinaryExpr, endLabel string) 
 	switch c.Op {
 	case "<":
 		// if NOT (left < right) goto end  =>  if left >= right goto end  =>  if left GEQ right goto end
-		cmp = fmt.Sprintf("if !%s! GEQ !%s! goto %s", left, right, endLabel)
+		cmp = fmt.Sprintf("if %s GEQ %s goto %s", leftCmp, rightCmp, endLabel)
 	case "<=":
-		cmp = fmt.Sprintf("if !%s! GTR !%s! goto %s", left, right, endLabel)
+		cmp = fmt.Sprintf("if %s GTR %s goto %s", leftCmp, rightCmp, endLabel)
 	case ">":
-		cmp = fmt.Sprintf("if !%s! LEQ !%s! goto %s", left, right, endLabel)
+		cmp = fmt.Sprintf("if %s LEQ %s goto %s", leftCmp, rightCmp, endLabel)
 	case ">=":
-		cmp = fmt.Sprintf("if !%s! LSS !%s! goto %s", left, right, endLabel)
+		cmp = fmt.Sprintf("if %s LSS %s goto %s", leftCmp, rightCmp, endLabel)
 	case "==":
-		cmp = fmt.Sprintf("if !%s! NEQ !%s! goto %s", left, right, endLabel)
+		cmp = fmt.Sprintf("if %s NEQ %s goto %s", leftCmp, rightCmp, endLabel)
 	case "!=":
-		cmp = fmt.Sprintf("if !%s! EQU !%s! goto %s", left, right, endLabel)
+		cmp = fmt.Sprintf("if %s EQU %s goto %s", leftCmp, rightCmp, endLabel)
 	}
 	ctx.emitLine(cmp)
 }
@@ -313,6 +453,75 @@ func needsPreCompute(e ast.Expr) bool {
 	default:
 		return true
 	}
+}
+
+// lowerIfComparison handles if statements with comparison operators (<, >, <=, >=, ==, !=).
+func lowerIfComparison(ctx *Context, c *ast.BinaryExpr, thenBlock, elseBlock []ast.Statement, emit func(ast.Statement) error) error {
+	left := lowerExprArithmetic(c.Left)
+	right := lowerExprArithmetic(c.Right)
+
+	// Pre-compute complex expressions
+	if needsPreCompute(c.Left) {
+		leftTemp := mangleTemp("left", ctx.NextLabel())
+		ctx.emitLine(fmt.Sprintf("set /a %s=%s", leftTemp, left))
+		left = leftTemp
+	}
+	if needsPreCompute(c.Right) {
+		rightTemp := mangleTemp("right", ctx.NextLabel())
+		ctx.emitLine(fmt.Sprintf("set /a %s=%s", rightTemp, right))
+		right = rightTemp
+	}
+
+	// Map Fin operators to batch comparison operators
+	var batchOp string
+	switch c.Op {
+	case "<":
+		batchOp = "LSS"
+	case "<=":
+		batchOp = "LEQ"
+	case ">":
+		batchOp = "GTR"
+	case ">=":
+		batchOp = "GEQ"
+	case "==":
+		batchOp = "EQU"
+	case "!=":
+		batchOp = "NEQ"
+	}
+
+	// Wrap variables in !...! but not literals
+	formatForCompare := func(val string, expr ast.Expr) string {
+		switch expr.(type) {
+		case *ast.IdentExpr, *ast.PropertyExpr, *ast.IndexExpr:
+			return fmt.Sprintf("!%s!", val)
+		default:
+			return val
+		}
+	}
+
+	leftCmp := formatForCompare(left, c.Left)
+	rightCmp := formatForCompare(right, c.Right)
+
+	ctx.emitLine(fmt.Sprintf("if %s %s %s (", leftCmp, batchOp, rightCmp))
+	ctx.pushIndent()
+	for _, stmt := range thenBlock {
+		if err := emit(stmt); err != nil {
+			return err
+		}
+	}
+	ctx.popIndent()
+	if len(elseBlock) > 0 {
+		ctx.emitLine(") else (")
+		ctx.pushIndent()
+		for _, stmt := range elseBlock {
+			if err := emit(stmt); err != nil {
+				return err
+			}
+		}
+		ctx.popIndent()
+	}
+	ctx.emitLine(")")
+	return nil
 }
 
 // lowerFnDecl lowers a function declaration to a batch label with parameter mapping.
