@@ -1,0 +1,17 @@
+# Test 4: For loops
+# Expected output:
+#   Count: 1
+#   Count: 2
+#   Count: 3
+#   Count: 4
+#   Count: 5
+#   Sum of 1 to 5: 15
+
+set total 0
+
+for i in 1..5
+    echo "Count: $i"
+    total = $total + $i
+end
+
+echo "Sum of 1 to 5: $total"

@@ -1,0 +1,17 @@
+# Test 7: Lists and array access
+# Expected output:
+#   First: 10
+#   Second: 20
+#   Third: 30
+#   Length: 3
+
+set nums [10, 20, 30]
+
+set first $nums[0]
+set second $nums[1]
+set third $nums[2]
+
+echo "First: $first"
+echo "Second: $second"
+echo "Third: $third"
+echo "Length: $nums_len"
