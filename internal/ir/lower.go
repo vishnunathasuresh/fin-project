@@ -38,8 +38,10 @@ func Lower(astProg *ast.Program) (*Program, error) {
 }
 
 func (l *Lowerer) lowerProgram(p *ast.Program) error {
-	// For now, just lower function declarations
-	// v1 doesn't have type declarations or methods yet
+	// Collect top-level statements (non-function declarations) for implicit main
+	var mainBody []ast.Statement
+	
+	// Separate function declarations from top-level statements
 	for _, stmt := range p.Statements {
 		if fn, ok := stmt.(*ast.FnDecl); ok {
 			irFn, err := l.lowerFnDecl(fn)
@@ -48,7 +50,34 @@ func (l *Lowerer) lowerProgram(p *ast.Program) error {
 				continue
 			}
 			l.prog.Functions[fn.Name] = irFn
+		} else {
+			mainBody = append(mainBody, stmt)
 		}
+	}
+
+	// If there are top-level statements, create an implicit main function
+	if len(mainBody) > 0 {
+		l.currentFn = &Function{
+			Name:       "main",
+			Params:     []Param{},
+			ReturnType: nil,
+			Locals:     []Var{},
+			Body:       []Stmt{},
+		}
+
+		for _, stmt := range mainBody {
+			irStmt, err := l.lowerStmt(stmt)
+			if err != nil {
+				l.errors = append(l.errors, err)
+				continue
+			}
+			if irStmt != nil {
+				l.currentFn.Body = append(l.currentFn.Body, irStmt)
+			}
+		}
+
+		l.prog.Functions["main"] = l.currentFn
+		l.currentFn = nil
 	}
 
 	return nil

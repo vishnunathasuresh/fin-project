@@ -1,0 +1,4 @@
+# Simple test
+set x 10
+set y 20
+set sum x + y
