@@ -11,8 +11,10 @@ import (
 	"strings"
 
 	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/diagnostics"
 	"github.com/vishnunathasuresh/fin-project/internal/format"
 	"github.com/vishnunathasuresh/fin-project/internal/generator"
+	"github.com/vishnunathasuresh/fin-project/internal/ir"
 	"github.com/vishnunathasuresh/fin-project/internal/lexer"
 	"github.com/vishnunathasuresh/fin-project/internal/parser"
 	"github.com/vishnunathasuresh/fin-project/internal/sema"
@@ -69,6 +71,16 @@ func printDiagnostics(w io.Writer, file string, err error) {
 	}
 }
 
+func printReporter(w io.Writer, reporter *diagnostics.Reporter) {
+	if reporter == nil {
+		return
+	}
+	output := reporter.Format()
+	if output != "" {
+		fmt.Fprint(w, output)
+	}
+}
+
 var (
 	red     = "\x1b[31m"
 	reset   = "\x1b[0m"
@@ -109,9 +121,13 @@ func buildCmd(args []string) {
 		os.Exit(1)
 	}
 
-	prog, err := loadAndAnalyze(inPath)
+	prog, reporter, err := loadAndAnalyze(inPath)
 	if err != nil {
-		printDiagnostics(os.Stderr, inPath, err)
+		if reporter != nil && reporter.HasErrors() {
+			printReporter(os.Stderr, reporter)
+		} else {
+			printDiagnostics(os.Stderr, inPath, err)
+		}
 		os.Exit(1)
 	}
 
@@ -141,9 +157,13 @@ func checkCmd(args []string) {
 		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
-	prog, err := loadAndAnalyze(args[0])
+	prog, reporter, err := loadAndAnalyze(args[0])
 	if err != nil {
-		printDiagnostics(os.Stderr, args[0], err)
+		if reporter != nil && reporter.HasErrors() {
+			printReporter(os.Stderr, reporter)
+		} else {
+			printDiagnostics(os.Stderr, args[0], err)
+		}
 		os.Exit(1)
 	}
 
@@ -164,9 +184,13 @@ func astCmd(args []string) {
 		printDiagnostics(os.Stderr, args[0], err)
 		os.Exit(1)
 	}
-	prog, err := loadAndAnalyze(args[0])
+	prog, reporter, err := loadAST(args[0])
 	if err != nil {
-		printDiagnostics(os.Stderr, args[0], err)
+		if reporter != nil && reporter.HasErrors() {
+			printReporter(os.Stderr, reporter)
+		} else {
+			printDiagnostics(os.Stderr, args[0], err)
+		}
 		os.Exit(1)
 	}
 	fmt.Print(ast.Format(prog))
@@ -189,9 +213,13 @@ func fmtCmd(args []string) {
 		printDiagnostics(os.Stderr, path, err)
 		os.Exit(1)
 	}
-	prog, err := loadAndAnalyze(path)
+	prog, reporter, err := loadAST(path)
 	if err != nil {
-		printDiagnostics(os.Stderr, path, err)
+		if reporter != nil && reporter.HasErrors() {
+			printReporter(os.Stderr, reporter)
+		} else {
+			printDiagnostics(os.Stderr, path, err)
+		}
 		os.Exit(1)
 	}
 	formatted := format.Format(prog)
@@ -211,30 +239,64 @@ func fmtCmd(args []string) {
 	os.Exit(0)
 }
 
-func loadAndAnalyze(path string) (*ast.Program, error) {
+func loadAndAnalyze(path string) (*ir.Program, *diagnostics.Reporter, error) {
 	src, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+	reporter := diagnostics.NewReporter(path, string(src))
 
 	l := lexer.New(string(src))
 	toks := parser.CollectTokens(l)
-	p := parser.New(toks)
+	p := parser.NewWithReporter(toks, reporter)
 	prog := p.ParseProgram()
 	if perrs := p.Errors(); len(perrs) > 0 {
-		return nil, multiError("parse errors", perrs)
+		return nil, reporter, errors.New("parse errors")
 	}
 
-	a := sema.New()
-	if err := a.Analyze(prog); err != nil {
-		return nil, err
+	res := sema.AnalyzeDefinitionsWithReporter(prog, reporter, 0)
+	if len(res.Errors) > 0 {
+		return nil, reporter, errors.New("semantic errors")
 	}
 
-	return prog, nil
+	irProg, err := ir.Lower(prog)
+	if err != nil {
+		return nil, reporter, err
+	}
+	if err := ir.Validate(irProg); err != nil {
+		return nil, reporter, err
+	}
+
+	return irProg, reporter, nil
 }
 
-func generate(prog *ast.Program) (string, error) {
-	g := generator.NewBatchGenerator()
+func loadAST(path string) (*ast.Program, *diagnostics.Reporter, error) {
+	src, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	reporter := diagnostics.NewReporter(path, string(src))
+
+	l := lexer.New(string(src))
+	toks := parser.CollectTokens(l)
+	p := parser.NewWithReporter(toks, reporter)
+	prog := p.ParseProgram()
+	if perrs := p.Errors(); len(perrs) > 0 {
+		return nil, reporter, errors.New("parse errors")
+	}
+
+	res := sema.AnalyzeDefinitionsWithReporter(prog, reporter, 0)
+	if len(res.Errors) > 0 {
+		return nil, reporter, errors.New("semantic errors")
+	}
+
+	return prog, reporter, nil
+}
+
+func generate(prog *ir.Program) (string, error) {
+	g := generator.NewIRBatchGenerator()
 	return g.Generate(prog)
 }
 

@@ -1,22 +1,30 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/diagnostics"
 	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
 // Parser holds token stream state for recursive-descent parsing.
 type Parser struct {
-	tokens []token.Token
-	pos    int
-	errors []error
+	tokens   []token.Token
+	pos      int
+	errors   []error
+	reporter *diagnostics.Reporter
 }
 
 // New creates a parser from a token slice.
 func New(tokens []token.Token) *Parser {
 	return &Parser{tokens: tokens, pos: 0}
+}
+
+// NewWithReporter creates a parser that reports diagnostics while parsing.
+func NewWithReporter(tokens []token.Token, reporter *diagnostics.Reporter) *Parser {
+	return &Parser{tokens: tokens, pos: 0, reporter: reporter}
 }
 
 // current returns the token at the current position safely (EOF if out of bounds).
@@ -28,6 +36,21 @@ func (p *Parser) current() token.Token {
 		return p.tokens[len(p.tokens)-1]
 	}
 	return p.tokens[p.pos]
+}
+
+func (p *Parser) tokenPos(tok token.Token) ast.Pos {
+	return ast.Pos{Line: tok.Line, Column: tok.Column}
+}
+
+func (p *Parser) currentPos() ast.Pos {
+	return p.tokenPos(p.current())
+}
+
+func (p *Parser) reportError(pos ast.Pos, code, message string) {
+	p.errors = append(p.errors, errors.New(message))
+	if p.reporter != nil {
+		p.reporter.Error(pos, code, message)
+	}
 }
 
 // next advances the parser if not at EOF and returns the token that was current before advancing.
@@ -104,7 +127,7 @@ func (p *Parser) parseStatement() ast.Statement {
 		return nil
 	}
 	if tok.Type == token.ILLEGAL {
-		p.errors = append(p.errors, fmt.Errorf("illegal token: %s", tok.Literal))
+		p.reportError(p.tokenPos(tok), diagnostics.ErrSyntax, fmt.Sprintf("illegal token: %s", tok.Literal))
 		p.next()
 		return nil
 	}
@@ -137,7 +160,7 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return p.parseCall()
 	default:
-		p.errors = append(p.errors, fmt.Errorf("unexpected token: %s", tok.Type))
+		p.reportError(p.tokenPos(tok), diagnostics.ErrUnexpectedToken, fmt.Sprintf("unexpected token: %s", tok.Type))
 		p.next()
 		return nil
 	}
@@ -154,7 +177,7 @@ func (p *Parser) parseAssign() ast.Statement {
 	nameTok := p.next() // ident
 	assignTok, ok := p.expect(token.ASSIGN)
 	if !ok {
-		p.errors = append(p.errors, fmt.Errorf("expected '=' after identifier"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected '=' after identifier")
 		return nil
 	}
 	val := p.parseExpression(0)
@@ -185,7 +208,7 @@ func (p *Parser) parseSet() ast.Statement {
 	setTok := p.next() // consume 'set'
 	nameTok, ok := p.expect(token.IDENT)
 	if !ok {
-		p.errors = append(p.errors, fmt.Errorf("expected identifier after set"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier after set")
 		return nil
 	}
 	val := p.parseExpression(0)
@@ -207,7 +230,7 @@ func (p *Parser) parseRun() ast.Statement {
 	runTok := p.next() // consume 'run'
 	cmdTok, ok := p.expect(token.STRING)
 	if !ok {
-		p.errors = append(p.errors, fmt.Errorf("expected string after run"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected string after run")
 		return nil
 	}
 	p.consumeNewlineIfPresent()
@@ -241,7 +264,7 @@ func (p *Parser) parseIf() ast.Statement {
 	ifTok := p.next() // consume 'if'
 	cond := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
-		p.errors = append(p.errors, fmt.Errorf("expected newline after if condition"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after if condition")
 	}
 	p.consumeNewlineIfPresent()
 	thenBlock := p.parseBlock(token.ELSE, token.END)
@@ -252,7 +275,7 @@ func (p *Parser) parseIf() ast.Statement {
 		elseBlock = p.parseBlock(token.END)
 	}
 	if !p.check(token.END) {
-		p.errors = append(p.errors, fmt.Errorf("expected end to close if"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close if")
 	} else {
 		p.next() // consume end
 	}
@@ -264,28 +287,28 @@ func (p *Parser) parseFor() ast.Statement {
 	forTok := p.next() // consume 'for'
 	iterTok, ok := p.expect(token.IDENT)
 	if !ok {
-		p.errors = append(p.errors, fmt.Errorf("expected identifier after for"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier after for")
 		return nil
 	}
 	if !p.check(token.IN) {
-		p.errors = append(p.errors, fmt.Errorf("expected in after for variable"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected in after for variable")
 		return nil
 	}
 	p.next() // consume 'in'
 	start := p.parseExpression(0)
 	if !p.check(token.DOTDOT) {
-		p.errors = append(p.errors, fmt.Errorf("expected .. in for range"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected .. in for range")
 		return nil
 	}
 	p.next() // consume '..'
 	end := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
-		p.errors = append(p.errors, fmt.Errorf("expected newline after for header"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after for header")
 	}
 	p.consumeNewlineIfPresent()
 	body := p.parseBlock(token.END)
 	if !p.check(token.END) {
-		p.errors = append(p.errors, fmt.Errorf("expected end to close for"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close for")
 	} else {
 		p.next()
 	}
@@ -297,12 +320,12 @@ func (p *Parser) parseWhile() ast.Statement {
 	whileTok := p.next() // consume 'while'
 	cond := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
-		p.errors = append(p.errors, fmt.Errorf("expected newline after while condition"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after while condition")
 	}
 	p.consumeNewlineIfPresent()
 	body := p.parseBlock(token.END)
 	if !p.check(token.END) {
-		p.errors = append(p.errors, fmt.Errorf("expected end to close while"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close while")
 	} else {
 		p.next()
 	}
@@ -314,7 +337,7 @@ func (p *Parser) parseFn() ast.Statement {
 	fnTok := p.next() // consume 'fn'
 	nameTok, ok := p.expect(token.IDENT)
 	if !ok {
-		p.errors = append(p.errors, fmt.Errorf("expected function name"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected function name")
 		return nil
 	}
 	var params []string
@@ -323,12 +346,12 @@ func (p *Parser) parseFn() ast.Statement {
 		params = append(params, tok.Literal)
 	}
 	if !p.check(token.NEWLINE) {
-		p.errors = append(p.errors, fmt.Errorf("expected newline after fn signature"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after fn signature")
 	}
 	p.consumeNewlineIfPresent()
 	body := p.parseBlock(token.END)
 	if !p.check(token.END) {
-		p.errors = append(p.errors, fmt.Errorf("expected end to close function"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close function")
 	} else {
 		p.next()
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/diagnostics"
 	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
@@ -48,7 +49,7 @@ type infixParseFn func(*Parser, ast.Expr) ast.Expr
 func (p *Parser) parseExpression(precedence int) ast.Expr {
 	prefix := prefixParseFns[p.current().Type]
 	if prefix == nil {
-		p.errors = append(p.errors, fmt.Errorf("no prefix parse function for %s", p.current().Type))
+		p.reportError(p.currentPos(), diagnostics.ErrUnexpectedToken, fmt.Sprintf("no prefix parse function for %s", p.current().Type))
 		return nil
 	}
 
@@ -135,7 +136,7 @@ func parseGrouped(p *Parser) ast.Expr {
 	p.next() // consume '('
 	expr := p.parseExpression(0)
 	if !p.check(token.RPAREN) {
-		p.errors = append(p.errors, fmt.Errorf("expected )"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected )")
 		return expr
 	}
 	p.next() // consume ')'
@@ -160,7 +161,7 @@ func parseList(p *Parser) ast.Expr {
 			p.next()
 			continue
 		}
-		p.errors = append(p.errors, fmt.Errorf("expected , or ] in list"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ] in list")
 		break
 	}
 	return &ast.ListLit{Elements: elems, P: ast.Pos{Line: lTok.Line, Column: lTok.Column}}
@@ -175,12 +176,12 @@ func parseMap(p *Parser) ast.Expr {
 	}
 	for {
 		if !p.check(token.IDENT) {
-			p.errors = append(p.errors, fmt.Errorf("expected map key ident"))
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected map key ident")
 			break
 		}
 		keyTok := p.next()
 		if !p.check(token.COLON) {
-			p.errors = append(p.errors, fmt.Errorf("expected : after map key"))
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after map key")
 			break
 		}
 		p.next() // consume ':'
@@ -195,7 +196,7 @@ func parseMap(p *Parser) ast.Expr {
 			p.next()
 			continue
 		}
-		p.errors = append(p.errors, fmt.Errorf("expected , or } in map"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or } in map")
 		break
 	}
 	return &ast.MapLit{Pairs: pairs, P: ast.Pos{Line: mTok.Line, Column: mTok.Column}}
@@ -221,7 +222,7 @@ func parseIndex(p *Parser, left ast.Expr) ast.Expr {
 	p.next() // consume '['
 	index := p.parseExpression(0)
 	if !p.check(token.RBRACKET) {
-		p.errors = append(p.errors, fmt.Errorf("expected ] after index expression"))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ] after index expression")
 	} else {
 		p.next()
 	}
@@ -232,7 +233,7 @@ func parseProperty(p *Parser, left ast.Expr) ast.Expr {
 	dotTok := p.current()
 	p.next() // consume '.'
 	if !p.check(token.IDENT) {
-		p.errors = append(p.errors, fmt.Errorf("expected property name after ."))
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected property name after .")
 		return left
 	}
 	nameTok := p.next()
