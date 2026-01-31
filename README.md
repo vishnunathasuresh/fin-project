@@ -222,7 +222,6 @@ fin/
  │   ├─ ast/               # Abstract syntax tree
  │   ├─ sema/              # Semantic analysis
  │   ├─ generator/         # Batch code generation
- │   └─ diagnostics/       # Error reporting
  ├─ examples/              # Example .fin files
  ├─ tests/                 # Integration tests
  ├─ scripts/               # Build scripts & installer
