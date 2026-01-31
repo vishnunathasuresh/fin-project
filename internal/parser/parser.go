@@ -131,12 +131,35 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.CONTINUE:
 		return p.parseContinue()
 	case token.IDENT:
+		// lookahead for assignment
+		if next := p.peek(); next.Type == token.ASSIGN {
+			return p.parseAssign()
+		}
 		return p.parseCall()
 	default:
 		p.errors = append(p.errors, fmt.Errorf("unexpected token: %s", tok.Type))
 		p.next()
 		return nil
 	}
+}
+
+func (p *Parser) peek() token.Token {
+	if p.pos+1 >= len(p.tokens) {
+		return token.Token{Type: token.EOF}
+	}
+	return p.tokens[p.pos+1]
+}
+
+func (p *Parser) parseAssign() ast.Statement {
+	nameTok := p.next() // ident
+	assignTok, ok := p.expect(token.ASSIGN)
+	if !ok {
+		p.errors = append(p.errors, fmt.Errorf("expected '=' after identifier"))
+		return nil
+	}
+	val := p.parseExpression(0)
+	p.consumeNewlineIfPresent()
+	return &ast.AssignStmt{Name: nameTok.Literal, Value: val, P: ast.Pos{Line: assignTok.Line, Column: assignTok.Column}}
 }
 
 // synchronize advances until after a newline or EOF to recover from an error.

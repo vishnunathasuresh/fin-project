@@ -3,15 +3,27 @@ package sema
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunath-suresh/fin-project/internal/lexer"
+	"github.com/vishnunath-suresh/fin-project/internal/parser"
 )
+
+func parseProgram(t *testing.T, src string) *ast.Program {
+	t.Helper()
+	l := lexer.New(src)
+	toks := parser.CollectTokens(l)
+	p := parser.New(toks)
+	return p.ParseProgram()
+}
 
 func TestIntegration_UndefinedVariable(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
 		&ast.EchoStmt{Value: &ast.IdentExpr{Name: "missing", P: ast.Pos{Line: 1, Column: 6}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
+
 	res := AnalyzeDefinitions(prog)
 	if len(res.Errors) == 0 {
 		t.Fatalf("expected undefined variable error")
@@ -22,6 +34,28 @@ func TestIntegration_UndefinedVariable(t *testing.T) {
 	}
 	if u.P.Line != 1 || u.P.Column != 6 {
 		t.Fatalf("expected position 1:6, got %d:%d", u.P.Line, u.P.Column)
+	}
+}
+
+func TestIntegration_Assign_Undefined(t *testing.T) {
+	src := "a = 1\n"
+	prog := parseProgram(t, src)
+	a := New()
+	err := a.Analyze(prog)
+	if err == nil {
+		t.Fatalf("expected error for undefined assign")
+	}
+	if !strings.Contains(err.Error(), "undefined variable \"a\"") {
+		t.Fatalf("expected undefined variable error, got: %v", err)
+	}
+}
+
+func TestIntegration_Assign_Defined(t *testing.T) {
+	src := "set a 1\na = 2\n"
+	prog := parseProgram(t, src)
+	a := New()
+	if err := a.Analyze(prog); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

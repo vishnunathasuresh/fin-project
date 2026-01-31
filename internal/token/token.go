@@ -39,6 +39,7 @@ const (
 	CONTINUE Type = "CONTINUE"
 	TRUE     Type = "TRUE"
 	FALSE    Type = "FALSE"
+	ASSIGN   Type = "="
 	PLUS     Type = "+"
 	MINUS    Type = "-"
 	STAR     Type = "*"

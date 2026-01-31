@@ -15,6 +15,24 @@ func parseProgram(t *testing.T, src string) *ast.Program {
 	return p.ParseProgram()
 }
 
+func TestParse_Assign(t *testing.T) {
+	src := "set a 1\na = 2\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 2 {
+		t.Fatalf("got %d statements, want 2", len(prog.Statements))
+	}
+	if _, ok := prog.Statements[0].(*ast.SetStmt); !ok {
+		t.Fatalf("stmt0 not set: %T", prog.Statements[0])
+	}
+	assign, ok := prog.Statements[1].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("stmt1 not assign: %T", prog.Statements[1])
+	}
+	if assign.Name != "a" {
+		t.Fatalf("assign name=%q", assign.Name)
+	}
+}
+
 func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
 	t.Helper()
 	l := lexer.New(src)

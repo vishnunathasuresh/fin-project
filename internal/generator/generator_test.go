@@ -23,8 +23,23 @@ func TestGenerate_TopLevelSetEchoRun(t *testing.T) {
 		"set x=10\n" +
 		"echo %x%\n" +
 		"git status\n"
-
 	if out != want {
+		t.Fatalf("unexpected output:\n%s", out)
+	}
+}
+
+func TestGenerate_Assign(t *testing.T) {
+	prog := &ast.Program{Statements: []ast.Statement{
+		&ast.SetStmt{Name: "a", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 7}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.AssignStmt{Name: "a", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+	}}
+	g := NewBatchGenerator()
+	out, err := g.Generate(prog)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := "@echo off\nset a=1\nset a=2\n"
+	if out != expected {
 		t.Fatalf("unexpected output:\n%s", out)
 	}
 }

@@ -44,6 +44,7 @@ Other forms: indexing (`$nums[0]`), property (`$user.name`), grouping (`(expr)`)
 
 ## Statements
 - `set name expr`
+- `name = expr` (assignment to an existing variable)
 - `echo expr`
 - `run "command"`
 - `if cond ... [else ...] end`
@@ -75,8 +76,16 @@ greet "Bob"
 - Blank line between top-level functions
 - Stable spacing in maps/lists (`{k: v}`, `[a, b]`)
 - Unary/binary rendered with spaces (`(a + b)`, `!flag`)
+- Assignments render as `name = expr` in source; generator lowers both `set` and assignment to `set name=...` in batch.
 
 ## String interpolation (generator)
 Inside string literals, `$name` becomes `%name%`; `$$` becomes literal `$`.
+
+## Grammar (excerpt with assignment)
+```
+statement → setStmt | assignStmt | echoStmt | runStmt | ifStmt | forStmt | whileStmt | fnDecl | returnStmt | callStmt | NEWLINE
+setStmt   → "set" IDENT expr NEWLINE
+assignStmt→ IDENT "=" expr NEWLINE
+```
 
 For full architectural rules, see [rules.md](rules.md).

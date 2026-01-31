@@ -70,6 +70,8 @@ func (g *BatchGenerator) emitStmt(stmt ast.Statement) error {
 		lowerRunStmt(g.ctx, s)
 	case *ast.SetStmt:
 		lowerSetStmt(g.ctx, s)
+	case *ast.AssignStmt:
+		lowerAssignStmt(g.ctx, s)
 	case *ast.IfStmt:
 		return lowerIfStmt(g.ctx, s, g.emitStmt)
 	case *ast.ForStmt:

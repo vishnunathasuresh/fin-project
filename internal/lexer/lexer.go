@@ -143,7 +143,7 @@ func (l *Lexer) NextToken() token.Token {
 			return token.New(token.EQEQ, "==", startLine, startCol)
 		}
 		l.next()
-		return token.New(token.ILLEGAL, "=", startLine, startCol)
+		return token.New(token.ASSIGN, "=", startLine, startCol)
 
 	case ch == '<':
 		if l.peekNext() == '=' {

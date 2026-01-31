@@ -51,6 +51,16 @@ func (s *SetStmt) Pos() Pos { return s.P }
 func (*SetStmt) node()      {}
 func (*SetStmt) stmt()      {}
 
+type AssignStmt struct {
+	Name  string
+	Value Expr
+	P     Pos
+}
+
+func (s *AssignStmt) Pos() Pos { return s.P }
+func (*AssignStmt) node()      {}
+func (*AssignStmt) stmt()      {}
+
 type EchoStmt struct {
 	Value Expr
 	P     Pos

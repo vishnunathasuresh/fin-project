@@ -204,6 +204,11 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 		for _, arg := range s.Args {
 			analyzeExpr(arg, scope, res, depth+1, limit)
 		}
+	case *ast.AssignStmt:
+		if _, ok := scope.Lookup(s.Name); !ok {
+			res.Errors = append(res.Errors, UndefinedVariableError{Name: s.Name, P: s.P})
+		}
+		analyzeExpr(s.Value, scope, res, depth+1, limit)
 	case *ast.EchoStmt:
 		analyzeExpr(s.Value, scope, res, depth+1, limit)
 	case *ast.RunStmt:
