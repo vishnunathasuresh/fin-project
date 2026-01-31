@@ -311,7 +311,8 @@ Lexer must never panic.
 * Duplicate function names forbidden.
 
 PART I — REAL GENERATOR ARCHITECTURE
-🎯 Generator’s Responsibility (Authoritative)
+
+Generator's Responsibility (Authoritative)
 
 The generator must:
 
@@ -327,7 +328,7 @@ inspect tokens
 
 guess intent
 
-🧱 High-Level Architecture
+High-Level Architecture
 Validated AST
    ↓
 Lowering (AST → IR-like ops)
@@ -339,7 +340,7 @@ Final .bat
 
 We separate concerns to keep this maintainable.
 
-📁 Directory Structure
+Directory Structure
 internal/generator/
  ├── generator.go      # public API
  ├── context.go        # state (labels, vars, scopes)
@@ -353,7 +354,7 @@ internal/generator/
 
 This mirrors real compiler backends.
 
-🧠 Core Concepts
+Core Concepts
 1. Generator Context (Critical)
 
 Holds all mutable state:
@@ -403,9 +404,9 @@ escaping
 
 No logic.
 
-🧾 Generator Public API
+Generator Public API
 
-📄 generator.go
+generator.go
 
 package generator
 

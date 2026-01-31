@@ -18,7 +18,7 @@ A production-grade, **Fish-inspired DSL** that compiles deterministically into *
 
 ---
 
-## ✨ Features
+## Features
 
 - **Fish-inspired syntax** — Variables, functions, conditionals, loops with intuitive semantics
 - **Deterministic compilation** — Same source always produces identical batch output
@@ -30,7 +30,7 @@ A production-grade, **Fish-inspired DSL** that compiles deterministically into *
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Install
 
@@ -64,7 +64,7 @@ fin version
 
 ---
 
-## 📖 Language Features
+## Language Features
 
 ### Variables
 ```fin
@@ -133,7 +133,7 @@ echo "Server: $user@localhost:$port"
 
 ---
 
-## 🏗️ Building from Source
+## Building from Source
 
 ### Prerequisites
 - **Go** 1.21+ ([download](https://golang.org/dl))
@@ -167,7 +167,7 @@ Output:
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | File | Purpose |
 |------|---------|
@@ -178,7 +178,7 @@ Output:
 
 ---
 
-## 🧪 Examples
+## Examples
 
 Complete examples in [examples/](examples/) directory:
 
@@ -203,7 +203,7 @@ fin build examples/01_variables_echo.fin
 
 ---
 
-## 🔧 Development
+## Development
 
 ### Running Tests
 ```bash
@@ -246,7 +246,7 @@ Batch Script (.bat)
 
 ---
 
-## 📋 Supported Operators
+## Supported Operators
 
 | Category | Operators |
 |----------|-----------|
@@ -257,7 +257,7 @@ Batch Script (.bat)
 
 ---
 
-## 🎯 Design Principles
+## Design Principles
 
 From [AGENTS.md](AGENTS.md):
 
@@ -268,35 +268,35 @@ From [AGENTS.md](AGENTS.md):
 
 ---
 
-## ⚖️ License
+## License
 
 MIT License — See [LICENSE](LICENSE) for details.
 
 ---
 
-## 👤 Author
+## Author
 
 **bfrovrflw**
 
 ---
 
-## 📝 Version History
+## Version History
 
 ### v1.0.0 (2026-02-01)
-- ✅ Core language features (variables, functions, control flow)
-- ✅ List and map support
-- ✅ Recursive functions
-- ✅ String interpolation with property/index access
-- ✅ All comparison operators in if/while
-- ✅ Proper batch delayed expansion handling
-- ✅ Semantic analysis and error reporting
-- ✅ CLI tools (build, check, ast, fmt)
-- ✅ NSIS installer with PATH updates
-- ✅ Complete test suite (100+ tests)
+- Core language features (variables, functions, control flow)
+- List and map support
+- Recursive functions
+- String interpolation with property/index access
+- All comparison operators in if/while
+- Proper batch delayed expansion handling
+- Semantic analysis and error reporting
+- CLI tools (build, check, ast, fmt)
+- NSIS installer with PATH updates
+- Complete test suite (100+ tests)
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions welcome! Please:
 1. Follow [AGENTS.md](AGENTS.md) architecture rules
@@ -306,7 +306,7 @@ Contributions welcome! Please:
 
 ---
 
-## 🐞 Known Limitations
+## Known Limitations
 
 - **No return values** — Functions don't return values (planned for v1.1)
 - **No imports** — All code in single file (planned for v1.1)
@@ -315,7 +315,7 @@ Contributions welcome! Please:
 
 ---
 
-## 📞 Support
+## Support
 
 - **Issues** — GitHub Issues
 - **Docs** — See [docs/](docs/) folder
