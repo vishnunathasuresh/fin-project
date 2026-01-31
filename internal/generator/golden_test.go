@@ -26,17 +26,19 @@ func TestGenerator_Golden(t *testing.T) {
 				"    echo $name\n" +
 				"end\n",
 			expected: "@echo off\n" +
+				"setlocal EnableDelayedExpansion\n" +
 				"set x=1\n" +
 				"call :fn_greet Bob\n" +
 				"goto :eof\n" +
 				":fn_greet\n" +
-				"setlocal\n" +
+				"setlocal EnableDelayedExpansion\n" +
 				"set name=%1\n" +
 				"set ret_greet_tmp_1=\n" +
-				"    echo %name%\n" +
+				"    echo !name!\n" +
 				":fn_ret_greet\n" +
 				"endlocal & set fn_greet_ret=%ret_greet_tmp_1%\n" +
-				"goto :eof\n",
+				"goto :eof\n" +
+				"endlocal\n",
 		},
 		{
 			name: "control_flow_mix",
@@ -48,19 +50,22 @@ func TestGenerator_Golden(t *testing.T) {
 				"    echo loop\n" +
 				"end\n",
 			expected: "@echo off\n" +
+				"setlocal EnableDelayedExpansion\n" +
 				"set total=0\n" +
-				"set i=1\n" +
+				"set /a i=1\n" +
 				":loop_continue_1\n" +
-				"if %i% GTR 3 goto loop_break_1\n" +
-				"    echo %i%\n" +
-				"set /a i=%i%+1\n" +
+				"if !i! GTR 3 goto loop_break_1\n" +
+				"    echo !i!\n" +
+				"set /a i=i+1\n" +
 				"goto loop_continue_1\n" +
 				":loop_break_1\n" +
 				":while_start_2\n" +
-				"if not false goto while_end_2\n" +
-				"echo %loop%\n" +
+				"set /a cond_tmp_3=(false)\n" +
+				"if !cond_tmp_3! equ 0 goto while_end_2\n" +
+				"echo !loop!\n" +
 				"goto while_start_2\n" +
-				":while_end_2\n",
+				":while_end_2\n" +
+				"endlocal\n",
 		},
 	}
 

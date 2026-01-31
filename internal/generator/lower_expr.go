@@ -11,6 +11,16 @@ import (
 // lowerExpr converts an expression into a batch-safe string fragment.
 // It performs no evaluation; it only maps AST nodes to batch syntax.
 func lowerExpr(expr ast.Expr) string {
+	return lowerExprWithContext(expr, false)
+}
+
+// lowerExprArithmetic lowers an expression for use in set /a context.
+// Variables in set /a don't need expansion markers.
+func lowerExprArithmetic(expr ast.Expr) string {
+	return lowerExprWithContext(expr, true)
+}
+
+func lowerExprWithContext(expr ast.Expr, arithmetic bool) string {
 	switch e := expr.(type) {
 	case *ast.StringLit:
 		return interpolateString(e.Value)
@@ -22,21 +32,26 @@ func lowerExpr(expr ast.Expr) string {
 		}
 		return "false"
 	case *ast.IdentExpr:
-		return fmt.Sprintf("%%%s%%", e.Name)
+		if arithmetic {
+			return e.Name
+		}
+		return fmt.Sprintf("!%s!", e.Name)
 	case *ast.PropertyExpr:
-		base := lowerExpr(e.Object)
-		// Property accesses lower to base_field; assume base is an identifier expansion.
-		return fmt.Sprintf("%s_%s", trimPercents(base), e.Field)
+		base := trimPercents(lowerExprWithContext(e.Object, arithmetic))
+		if arithmetic {
+			return fmt.Sprintf("%s_%s", base, e.Field)
+		}
+		return fmt.Sprintf("!%s_%s!", base, e.Field)
 	case *ast.IndexExpr:
-		left := lowerExpr(e.Left)
-		idx := lowerExpr(e.Index)
-		return fmt.Sprintf("%s_%s", trimPercents(left), idx)
+		left := trimPercents(lowerExprWithContext(e.Left, false))
+		idx := trimPercents(lowerExprWithContext(e.Index, false))
+		return fmt.Sprintf("!%s_!%s!!", left, idx)
 	case *ast.BinaryExpr:
-		left := lowerExpr(e.Left)
-		right := lowerExpr(e.Right)
+		left := lowerExprWithContext(e.Left, arithmetic)
+		right := lowerExprWithContext(e.Right, arithmetic)
 		return fmt.Sprintf("%s %s %s", left, e.Op, right)
 	case *ast.UnaryExpr:
-		return fmt.Sprintf("%s%s", e.Op, lowerExpr(e.Right))
+		return fmt.Sprintf("%s%s", e.Op, lowerExprWithContext(e.Right, arithmetic))
 	case *ast.ListLit:
 		// Lists lower as comma-separated literal elements.
 		out := ""
@@ -66,8 +81,13 @@ func lowerExpr(expr ast.Expr) string {
 
 // trimPercents removes leading/trailing % used for identifier expansion.
 func trimPercents(s string) string {
-	if len(s) >= 2 && s[0] == '%' && s[len(s)-1] == '%' {
-		return s[1 : len(s)-1]
+	if len(s) >= 2 {
+		switch {
+		case s[0] == '%' && s[len(s)-1] == '%':
+			return s[1 : len(s)-1]
+		case s[0] == '!' && s[len(s)-1] == '!':
+			return s[1 : len(s)-1]
+		}
 	}
 	return s
 }

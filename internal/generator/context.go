@@ -36,6 +36,12 @@ func (c *Context) emitLine(s string) {
 	c.out.WriteString("\n")
 }
 
+// emitRawLine writes a line with no indentation (useful for labels).
+func (c *Context) emitRawLine(s string) {
+	c.out.WriteString(s)
+	c.out.WriteString("\n")
+}
+
 // NextLabel returns a new deterministic label id.
 func (c *Context) NextLabel() int {
 	c.labelCounter++

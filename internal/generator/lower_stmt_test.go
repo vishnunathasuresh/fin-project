@@ -38,7 +38,8 @@ func TestLowerWhileStmt(t *testing.T) {
 
 	want := strings.Join([]string{
 		":" + whileStartLabel(1),
-		"if not true goto " + whileEndLabel(1),
+		"set /a cond_tmp_2=(true)",
+		"if !cond_tmp_2! equ 0 goto " + whileEndLabel(1),
 		"echo loop",
 		"goto " + whileStartLabel(1),
 		":" + whileEndLabel(1),
@@ -91,8 +92,8 @@ func TestLowerIfStmt_Nested(t *testing.T) {
 	}
 
 	want := strings.Join([]string{
-		"if true (",
-		"    if false (",
+		"if \"true\"==\"true\" (",
+		"    if \"false\"==\"true\" (",
 		"        echo inner-then",
 		"    ) else (",
 		"        echo inner-else",
@@ -139,7 +140,7 @@ func TestLowerSetStmt_Map(t *testing.T) {
 func TestLowerEchoStmt(t *testing.T) {
 	ctx := NewContext()
 	lowerEchoStmt(ctx, &ast.EchoStmt{Value: &ast.IdentExpr{Name: "name"}})
-	want := "echo %name%\n"
+	want := "echo !name!\n"
 	if ctx.String() != want {
 		t.Fatalf("unexpected output:\n%s", ctx.String())
 	}
@@ -176,11 +177,11 @@ func TestLowerForStmt(t *testing.T) {
 	}
 
 	want := strings.Join([]string{
-		"set i=1",
+		"set /a i=1",
 		":loop_continue_1",
-		"if %i% GTR 5 goto loop_break_1",
-		"    echo %i%",
-		"set /a i=%i%+1",
+		"if !i! GTR 5 goto loop_break_1",
+		"    echo !i!",
+		"set /a i=i+1",
 		"goto loop_continue_1",
 		":loop_break_1",
 		"",
@@ -214,7 +215,7 @@ func TestLowerIfStmt_WithElse(t *testing.T) {
 	}
 
 	want := strings.Join([]string{
-		"if true (",
+		"if \"true\"==\"true\" (",
 		"    echo yes",
 		") else (",
 		"    echo no",

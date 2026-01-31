@@ -20,7 +20,11 @@ func lowerSetStmt(ctx *Context, s *ast.SetStmt) {
 			ctx.emitLine(fmt.Sprintf("set %s_%s=%s", s.Name, p.Key, lowerExpr(p.Value)))
 		}
 	default:
-		ctx.emitLine(fmt.Sprintf("set %s=%s", s.Name, lowerExpr(s.Value)))
+		if isArithmeticExpr(s.Value) {
+			ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Name, lowerExprArithmetic(s.Value)))
+		} else {
+			ctx.emitLine(fmt.Sprintf("set %s=%s", s.Name, lowerExpr(s.Value)))
+		}
 	}
 }
 
@@ -36,8 +40,27 @@ func lowerAssignStmt(ctx *Context, s *ast.AssignStmt) {
 			ctx.emitLine(fmt.Sprintf("set %s_%s=%s", s.Name, p.Key, lowerExpr(p.Value)))
 		}
 	default:
-		ctx.emitLine(fmt.Sprintf("set %s=%s", s.Name, lowerExpr(s.Value)))
+		if isArithmeticExpr(s.Value) {
+			ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Name, lowerExprArithmetic(s.Value)))
+		} else {
+			ctx.emitLine(fmt.Sprintf("set %s=%s", s.Name, lowerExpr(s.Value)))
+		}
 	}
+}
+
+func isArithmeticExpr(e ast.Expr) bool {
+	switch v := e.(type) {
+	case *ast.BinaryExpr:
+		switch v.Op {
+		case "+", "-", "*", "/", "**":
+			return true
+		}
+	case *ast.UnaryExpr:
+		if v.Op == "-" {
+			return true
+		}
+	}
+	return false
 }
 
 // lowerEchoStmt emits an echo with expression lowering for interpolation.
@@ -47,14 +70,66 @@ func lowerEchoStmt(ctx *Context, s *ast.EchoStmt) {
 
 // lowerRunStmt emits a command invocation with expression lowering.
 func lowerRunStmt(ctx *Context, s *ast.RunStmt) {
-	ctx.emitLine(lowerExpr(s.Command))
+	cmd := lowerExpr(s.Command)
+	cmd = strings.TrimSpace(cmd)
+	cmd = strings.Trim(cmd, "\"")
+	ctx.emitLine(cmd)
 }
 
 // lowerIfStmt lowers an if/else statement with proper indentation.
-// emit is used to recursively lower nested statements.
 func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) error {
-	cond := lowerCondition(s.Cond)
-	ctx.emitLine(fmt.Sprintf("if %s (", cond))
+	if b, ok := s.Cond.(*ast.BinaryExpr); ok {
+		leftVal := lowerExpr(b.Left)
+		rightVal := lowerExpr(b.Right)
+		
+		// Format operand: if it's already a variable expansion (!x!), use as-is
+		// otherwise treat as literal
+		formatOperand := func(val string, expr ast.Expr) string {
+			switch expr.(type) {
+			case *ast.IdentExpr, *ast.PropertyExpr, *ast.IndexExpr:
+				// It's a variable reference - lowerExpr already added !...!
+				return fmt.Sprintf("\"%s\"", val)
+			default:
+				// It's a literal value
+				return fmt.Sprintf("\"%s\"", val)
+			}
+		}
+		
+		left := formatOperand(leftVal, b.Left)
+		right := formatOperand(rightVal, b.Right)
+		
+		var header string
+		switch b.Op {
+		case "==":
+			header = fmt.Sprintf("if %s==%s (", left, right)
+		case "!=":
+			header = fmt.Sprintf("if %s NEQ %s (", left, right)
+		}
+		if header != "" {
+			ctx.emitLine(header)
+			ctx.pushIndent()
+			for _, inner := range s.Then {
+				if err := emit(inner); err != nil {
+					return err
+				}
+			}
+			ctx.popIndent()
+			if len(s.Else) > 0 {
+				ctx.emitLine(") else (")
+				ctx.pushIndent()
+				for _, inner := range s.Else {
+					if err := emit(inner); err != nil {
+						return err
+					}
+				}
+				ctx.popIndent()
+			}
+			ctx.emitLine(")")
+			return nil
+		}
+	}
+	cond := lowerExpr(s.Cond)
+	ctx.emitLine(fmt.Sprintf("if \"%s\"==\"true\" (", cond))
 	ctx.pushIndent()
 	for _, inner := range s.Then {
 		if err := emit(inner); err != nil {
@@ -77,15 +152,16 @@ func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) er
 }
 
 // lowerForStmt lowers a numeric range loop using labels to support break/continue.
+
 func lowerForStmt(ctx *Context, s *ast.ForStmt, emit func(ast.Statement) error) error {
 	startVal := lowerExpr(s.Start)
 	endVal := lowerExpr(s.End)
 	id := ctx.NextLabel()
 	startLbl := loopContinueLabel(id)
 	endLbl := loopBreakLabel(id)
-	ctx.emitLine(fmt.Sprintf("set %s=%s", s.Var, startVal))
-	ctx.emitLine(":" + startLbl)
-	ctx.emitLine(fmt.Sprintf("if %%%s%% GTR %s goto %s", s.Var, endVal, endLbl))
+	ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Var, startVal))
+	ctx.emitRawLine(":" + startLbl)
+	ctx.emitLine(fmt.Sprintf("if !%s! GTR %s goto %s", s.Var, endVal, endLbl))
 	ctx.pushLoop(endLbl, startLbl)
 	ctx.pushIndent()
 	for _, inner := range s.Body {
@@ -97,28 +173,29 @@ func lowerForStmt(ctx *Context, s *ast.ForStmt, emit func(ast.Statement) error) 
 	}
 	ctx.popIndent()
 	ctx.popLoop()
-	ctx.emitLine(fmt.Sprintf("set /a %s=%%%s%%+1", s.Var, s.Var))
+	ctx.emitLine(fmt.Sprintf("set /a %s=%s+1", s.Var, s.Var))
 	ctx.emitLine(fmt.Sprintf("goto %s", startLbl))
-	ctx.emitLine(":" + endLbl)
+	ctx.emitRawLine(":" + endLbl)
 	return nil
 }
 
 // lowerWhileStmt lowers a while loop using labels and conditional jumps.
+
 func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) error) error {
 	id := ctx.NextLabel()
 	start := whileStartLabel(id)
 	end := whileEndLabel(id)
-	ctx.emitLine(":" + start)
+	ctx.emitRawLine(":" + start)
 	switch c := s.Cond.(type) {
 	case *ast.ExistsCond:
 		cond := lowerCondition(c)
 		ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
 	default:
-		raw := lowerExpr(s.Cond)
-		arith := strings.ReplaceAll(raw, "%", "")
+		// Use arithmetic lowering for the condition (no ! or % around variables)
+		arith := lowerExprArithmetic(s.Cond)
 		temp := mangleTemp("cond", ctx.NextLabel())
-		ctx.emitLine(fmt.Sprintf("set /a %s=%s", temp, arith))
-		ctx.emitLine(fmt.Sprintf("if %%%s%%==0 goto %s", temp, end))
+		ctx.emitLine(fmt.Sprintf("set /a %s=(%s)", temp, arith))
+		ctx.emitLine(fmt.Sprintf("if !%s! equ 0 goto %s", temp, end))
 	}
 	ctx.pushLoop(end, start)
 	for _, inner := range s.Body {
@@ -129,7 +206,7 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) err
 	}
 	ctx.popLoop()
 	ctx.emitLine(fmt.Sprintf("goto %s", start))
-	ctx.emitLine(":" + end)
+	ctx.emitRawLine(":" + end)
 	return nil
 }
 
@@ -142,7 +219,7 @@ func lowerFnDecl(ctx *Context, fn *ast.FnDecl, emit func(ast.Statement) error) e
 	ret := returnTarget{label: retLabel, tempVar: retTemp, outVar: outVar}
 	ctx.emitLine("goto :eof")
 	ctx.emitLine(":" + label)
-	ctx.emitLine("setlocal")
+	ctx.emitLine("setlocal EnableDelayedExpansion")
 	for i, p := range fn.Params {
 		ctx.emitLine(fmt.Sprintf("set %s=%%%d", p, i+1))
 	}
@@ -213,7 +290,7 @@ func lowerContinueStmt(ctx *Context, s *ast.ContinueStmt) error {
 
 // escapeCallArg escapes batch specials and quotes when needed.
 func escapeCallArg(arg string) string {
-	specials := "^&|><()!"
+	specials := "^&|><()\""
 	needQuote := false
 	var b strings.Builder
 	for i := 0; i < len(arg); i++ {

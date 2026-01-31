@@ -29,6 +29,7 @@ func (g *BatchGenerator) Generate(p *ast.Program) (string, error) {
 	}
 
 	g.ctx.emitLine("@echo off")
+	g.ctx.emitLine("setlocal EnableDelayedExpansion")
 
 	var fns []*ast.FnDecl
 	for _, stmt := range p.Statements {
@@ -47,6 +48,7 @@ func (g *BatchGenerator) Generate(p *ast.Program) (string, error) {
 		}
 	}
 
+	g.ctx.emitLine("endlocal")
 	return g.ctx.String(), nil
 }
 

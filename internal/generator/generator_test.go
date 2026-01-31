@@ -20,9 +20,11 @@ func TestGenerate_TopLevelSetEchoRun(t *testing.T) {
 	}
 
 	want := "@echo off\n" +
+		"setlocal EnableDelayedExpansion\n" +
 		"set x=10\n" +
-		"echo %x%\n" +
-		"git status\n"
+		"echo !x!\n" +
+		"git status\n" +
+		"endlocal\n"
 	if out != want {
 		t.Fatalf("unexpected output:\n%s", out)
 	}
@@ -38,7 +40,7 @@ func TestGenerate_Assign(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	expected := "@echo off\nset a=1\nset a=2\n"
+	expected := "@echo off\nsetlocal EnableDelayedExpansion\nset a=1\nset a=2\nendlocal\n"
 	if out != expected {
 		t.Fatalf("unexpected output:\n%s", out)
 	}
@@ -90,16 +92,18 @@ func TestGenerate_Call(t *testing.T) {
 	}
 
 	want := "@echo off\n" +
+		"setlocal EnableDelayedExpansion\n" +
 		"call :fn_greet \"foo bar^&baz\"\n" +
 		"goto :eof\n" +
 		":fn_greet\n" +
-		"setlocal\n" +
+		"setlocal EnableDelayedExpansion\n" +
 		"set name=%1\n" +
 		"set ret_greet_tmp_1=\n" +
-		"    echo %name%\n" +
+		"    echo !name!\n" +
 		":fn_ret_greet\n" +
 		"endlocal & set fn_greet_ret=%ret_greet_tmp_1%\n" +
-		"goto :eof\n"
+		"goto :eof\n" +
+		"endlocal\n"
 
 	if out != want {
 		t.Fatalf("unexpected output:\n%s", out)
@@ -126,16 +130,18 @@ func TestGenerate_Function(t *testing.T) {
 	}
 
 	want := "@echo off\n" +
+		"setlocal EnableDelayedExpansion\n" +
 		"goto :eof\n" +
 		":fn_greet\n" +
-		"setlocal\n" +
+		"setlocal EnableDelayedExpansion\n" +
 		"set name=%1\n" +
 		"set ret_greet_tmp_1=\n" +
 		"    echo Hi\n" +
-		"    echo %name%\n" +
+		"    echo !name!\n" +
 		":fn_ret_greet\n" +
 		"endlocal & set fn_greet_ret=%ret_greet_tmp_1%\n" +
-		"goto :eof\n"
+		"goto :eof\n" +
+		"endlocal\n"
 
 	if out != want {
 		t.Fatalf("unexpected output:\n%s", out)
@@ -162,11 +168,13 @@ func TestGenerate_IfElse(t *testing.T) {
 	}
 
 	want := "@echo off\n" +
-		"if true (\n" +
+		"setlocal EnableDelayedExpansion\n" +
+		"if \"true\"==\"true\" (\n" +
 		"    echo yes\n" +
 		") else (\n" +
 		"    echo no\n" +
-		")\n"
+		")\n" +
+		"endlocal\n"
 
 	if out != want {
 		t.Fatalf("unexpected output:\n%s", out)
