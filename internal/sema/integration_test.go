@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
-	"github.com/vishnunath-suresh/fin-project/internal/lexer"
-	"github.com/vishnunath-suresh/fin-project/internal/parser"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/lexer"
+	"github.com/vishnunathasuresh/fin-project/internal/parser"
 )
 
 func parseProgram(t *testing.T, src string) *ast.Program {

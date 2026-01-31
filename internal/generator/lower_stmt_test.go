@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 func TestLowerSetStmt_Scalar(t *testing.T) {

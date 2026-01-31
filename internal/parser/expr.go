@@ -3,8 +3,8 @@ package parser
 import (
 	"fmt"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
-	"github.com/vishnunath-suresh/fin-project/internal/token"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
 // Pratt parser implementation for expressions.

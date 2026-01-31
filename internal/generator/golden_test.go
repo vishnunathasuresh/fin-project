@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
-	"github.com/vishnunath-suresh/fin-project/internal/lexer"
-	"github.com/vishnunath-suresh/fin-project/internal/parser"
-	"github.com/vishnunath-suresh/fin-project/internal/sema"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/lexer"
+	"github.com/vishnunathasuresh/fin-project/internal/parser"
+	"github.com/vishnunathasuresh/fin-project/internal/sema"
 )
 
 type goldenCase struct {

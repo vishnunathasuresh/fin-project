@@ -3,7 +3,7 @@ package lexer
 import (
 	"unicode"
 
-	"github.com/vishnunath-suresh/fin-project/internal/token"
+	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
 type Lexer struct {

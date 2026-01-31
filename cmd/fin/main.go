@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
-	"github.com/vishnunath-suresh/fin-project/internal/format"
-	"github.com/vishnunath-suresh/fin-project/internal/generator"
-	"github.com/vishnunath-suresh/fin-project/internal/lexer"
-	"github.com/vishnunath-suresh/fin-project/internal/parser"
-	"github.com/vishnunath-suresh/fin-project/internal/sema"
-	"github.com/vishnunath-suresh/fin-project/internal/version"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/format"
+	"github.com/vishnunathasuresh/fin-project/internal/generator"
+	"github.com/vishnunathasuresh/fin-project/internal/lexer"
+	"github.com/vishnunathasuresh/fin-project/internal/parser"
+	"github.com/vishnunathasuresh/fin-project/internal/sema"
+	"github.com/vishnunathasuresh/fin-project/internal/version"
 )
 
 func main() {

@@ -1,3 +1,3 @@
-module github.com/vishnunath-suresh/fin-project
+module github.com/vishnunathasuresh/fin-project
 
 go 1.24.5

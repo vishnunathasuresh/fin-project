@@ -3,7 +3,7 @@ package sema
 import (
 	"fmt"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 // UndefinedVariableError is raised when a variable is referenced before declaration.

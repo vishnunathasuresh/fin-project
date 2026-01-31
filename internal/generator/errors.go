@@ -3,7 +3,7 @@ package generator
 import (
 	"fmt"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 // GeneratorError is a typed error for generator failures.

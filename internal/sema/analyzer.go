@@ -3,7 +3,7 @@ package sema
 import (
 	"errors"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 // FunctionRegistry tracks function signatures by name.

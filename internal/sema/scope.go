@@ -1,6 +1,6 @@
 package sema
 
-import "github.com/vishnunath-suresh/fin-project/internal/ast"
+import "github.com/vishnunathasuresh/fin-project/internal/ast"
 
 // Scope represents a lexical scope with an optional parent and a table of names.
 type Scope struct {

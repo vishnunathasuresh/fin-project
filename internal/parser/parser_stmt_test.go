@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
-	"github.com/vishnunath-suresh/fin-project/internal/lexer"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/lexer"
 )
 
 func parseProgram(t *testing.T, src string) *ast.Program {

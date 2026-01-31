@@ -3,7 +3,7 @@ package sema
 import (
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 func TestScope_NestedShadowIsError(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 func TestFunctionRegistry_DefineAndLookup(t *testing.T) {

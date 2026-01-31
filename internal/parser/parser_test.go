@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/vishnunath-suresh/fin-project/internal/token"
+	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
 // Table-driven coverage of parser helpers: current, next, match, check, expect, isAtEnd.

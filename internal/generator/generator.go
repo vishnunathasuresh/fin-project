@@ -3,7 +3,7 @@ package generator
 import (
 	"fmt"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 // Generator is the public interface for batch code generation.

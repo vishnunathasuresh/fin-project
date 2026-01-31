@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/vishnunath-suresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
 )
 
 // lowerExpr converts an expression into a batch-safe string fragment.
