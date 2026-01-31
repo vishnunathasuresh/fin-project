@@ -109,8 +109,17 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) err
 	start := whileStartLabel(id)
 	end := whileEndLabel(id)
 	ctx.emitLine(":" + start)
-	cond := lowerCondition(s.Cond)
-	ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
+	switch c := s.Cond.(type) {
+	case *ast.ExistsCond:
+		cond := lowerCondition(c)
+		ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
+	default:
+		raw := lowerExpr(s.Cond)
+		arith := strings.ReplaceAll(raw, "%", "")
+		temp := mangleTemp("cond", ctx.NextLabel())
+		ctx.emitLine(fmt.Sprintf("set /a %s=%s", temp, arith))
+		ctx.emitLine(fmt.Sprintf("if %%%s%%==0 goto %s", temp, end))
+	}
 	ctx.pushLoop(end, start)
 	for _, inner := range s.Body {
 		if err := emit(inner); err != nil {
