@@ -81,7 +81,7 @@ func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) er
 	if b, ok := s.Cond.(*ast.BinaryExpr); ok {
 		leftVal := lowerExpr(b.Left)
 		rightVal := lowerExpr(b.Right)
-		
+
 		// Format operand: if it's already a variable expansion (!x!), use as-is
 		// otherwise treat as literal
 		formatOperand := func(val string, expr ast.Expr) string {
@@ -94,10 +94,10 @@ func lowerIfStmt(ctx *Context, s *ast.IfStmt, emit func(ast.Statement) error) er
 				return fmt.Sprintf("\"%s\"", val)
 			}
 		}
-		
+
 		left := formatOperand(leftVal, b.Left)
 		right := formatOperand(rightVal, b.Right)
-		
+
 		var header string
 		switch b.Op {
 		case "==":
