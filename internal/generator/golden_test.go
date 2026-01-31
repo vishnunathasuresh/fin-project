@@ -60,8 +60,7 @@ func TestGenerator_Golden(t *testing.T) {
 				"goto loop_continue_1\n" +
 				":loop_break_1\n" +
 				":while_start_2\n" +
-				"set /a cond_tmp_3=(false)\n" +
-				"if !cond_tmp_3! equ 0 goto while_end_2\n" +
+				"goto while_end_2\n" +
 				"echo !loop!\n" +
 				"goto while_start_2\n" +
 				":while_end_2\n" +

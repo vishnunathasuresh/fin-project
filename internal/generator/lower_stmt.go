@@ -19,6 +19,13 @@ func lowerSetStmt(ctx *Context, s *ast.SetStmt) {
 		for _, p := range v.Pairs {
 			ctx.emitLine(fmt.Sprintf("set %s_%s=%s", s.Name, p.Key, lowerExpr(p.Value)))
 		}
+	case *ast.IndexExpr:
+		// Dynamic index access requires call set for proper expansion
+		// Pattern: call set varname=%%!arrayvar!_!index!%%
+		// Double %% becomes single % after first parse, then call re-evaluates
+		base := trimPercents(lowerExpr(v.Left))
+		idx := trimPercents(lowerExpr(v.Index))
+		ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
 	default:
 		if isArithmeticExpr(s.Value) {
 			ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Name, lowerExprArithmetic(s.Value)))
@@ -39,6 +46,13 @@ func lowerAssignStmt(ctx *Context, s *ast.AssignStmt) {
 		for _, p := range v.Pairs {
 			ctx.emitLine(fmt.Sprintf("set %s_%s=%s", s.Name, p.Key, lowerExpr(p.Value)))
 		}
+	case *ast.IndexExpr:
+		// Dynamic index access requires call set for proper expansion
+		// Pattern: call set varname=%%!arrayvar!_!index!%%
+		// Double %% becomes single % after first parse, then call re-evaluates
+		base := trimPercents(lowerExpr(v.Left))
+		idx := trimPercents(lowerExpr(v.Index))
+		ctx.emitLine(fmt.Sprintf("call set %s=%%%%!%s!_!%s!%%%%", s.Name, base, idx))
 	default:
 		if isArithmeticExpr(s.Value) {
 			ctx.emitLine(fmt.Sprintf("set /a %s=%s", s.Name, lowerExprArithmetic(s.Value)))
@@ -190,8 +204,32 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) err
 	case *ast.ExistsCond:
 		cond := lowerCondition(c)
 		ctx.emitLine(fmt.Sprintf("if not %s goto %s", cond, end))
+	case *ast.BinaryExpr:
+		// Handle comparison operators specially since set /a doesn't support them
+		if isComparisonOp(c.Op) {
+			lowerComparisonCondition(ctx, c, end)
+		} else if isBooleanOp(c.Op) {
+			// For && and ||, we need more complex handling
+			// For now, treat as a general expression that evaluates to true/false
+			arith := lowerExprArithmetic(s.Cond)
+			temp := mangleTemp("cond", ctx.NextLabel())
+			ctx.emitLine(fmt.Sprintf("set /a %s=(%s)", temp, arith))
+			ctx.emitLine(fmt.Sprintf("if !%s! equ 0 goto %s", temp, end))
+		} else {
+			// Arithmetic expression
+			arith := lowerExprArithmetic(s.Cond)
+			temp := mangleTemp("cond", ctx.NextLabel())
+			ctx.emitLine(fmt.Sprintf("set /a %s=(%s)", temp, arith))
+			ctx.emitLine(fmt.Sprintf("if !%s! equ 0 goto %s", temp, end))
+		}
+	case *ast.BoolLit:
+		if !c.Value {
+			// while false -> immediately exit
+			ctx.emitLine(fmt.Sprintf("goto %s", end))
+		}
+		// while true -> no condition check needed, infinite loop
 	default:
-		// Use arithmetic lowering for the condition (no ! or % around variables)
+		// General expression - try to evaluate as arithmetic
 		arith := lowerExprArithmetic(s.Cond)
 		temp := mangleTemp("cond", ctx.NextLabel())
 		ctx.emitLine(fmt.Sprintf("set /a %s=(%s)", temp, arith))
@@ -208,6 +246,73 @@ func lowerWhileStmt(ctx *Context, s *ast.WhileStmt, emit func(ast.Statement) err
 	ctx.emitLine(fmt.Sprintf("goto %s", start))
 	ctx.emitRawLine(":" + end)
 	return nil
+}
+
+func isComparisonOp(op string) bool {
+	switch op {
+	case "<", "<=", ">", ">=", "==", "!=":
+		return true
+	}
+	return false
+}
+
+func isBooleanOp(op string) bool {
+	return op == "&&" || op == "||"
+}
+
+// lowerComparisonCondition handles comparison expressions for while/if conditions
+func lowerComparisonCondition(ctx *Context, c *ast.BinaryExpr, endLabel string) {
+	left := lowerExprArithmetic(c.Left)
+	right := lowerExprArithmetic(c.Right)
+
+	// We need to compute left and right if they're complex expressions
+	leftTemp := ""
+	rightTemp := ""
+
+	// Check if left or right contain arithmetic that needs pre-computation
+	if needsPreCompute(c.Left) {
+		leftTemp = mangleTemp("left", ctx.NextLabel())
+		ctx.emitLine(fmt.Sprintf("set /a %s=%s", leftTemp, left))
+		left = leftTemp
+	}
+	if needsPreCompute(c.Right) {
+		rightTemp = mangleTemp("right", ctx.NextLabel())
+		ctx.emitLine(fmt.Sprintf("set /a %s=%s", rightTemp, right))
+		right = rightTemp
+	}
+
+	// Generate the comparison using if command
+	// Note: We jump to end if condition is FALSE (to exit loop)
+	var cmp string
+	switch c.Op {
+	case "<":
+		// if NOT (left < right) goto end  =>  if left >= right goto end  =>  if left GEQ right goto end
+		cmp = fmt.Sprintf("if !%s! GEQ !%s! goto %s", left, right, endLabel)
+	case "<=":
+		cmp = fmt.Sprintf("if !%s! GTR !%s! goto %s", left, right, endLabel)
+	case ">":
+		cmp = fmt.Sprintf("if !%s! LEQ !%s! goto %s", left, right, endLabel)
+	case ">=":
+		cmp = fmt.Sprintf("if !%s! LSS !%s! goto %s", left, right, endLabel)
+	case "==":
+		cmp = fmt.Sprintf("if !%s! NEQ !%s! goto %s", left, right, endLabel)
+	case "!=":
+		cmp = fmt.Sprintf("if !%s! EQU !%s! goto %s", left, right, endLabel)
+	}
+	ctx.emitLine(cmp)
+}
+
+func needsPreCompute(e ast.Expr) bool {
+	switch v := e.(type) {
+	case *ast.NumberLit, *ast.IdentExpr:
+		return false
+	case *ast.BinaryExpr:
+		return true
+	case *ast.UnaryExpr:
+		return needsPreCompute(v.Right)
+	default:
+		return true
+	}
 }
 
 // lowerFnDecl lowers a function declaration to a batch label with parameter mapping.

@@ -36,10 +36,9 @@ func TestLowerWhileStmt(t *testing.T) {
 		t.Fatalf("lowerWhileStmt error: %v", err)
 	}
 
+	// while true -> infinite loop with no condition check
 	want := strings.Join([]string{
 		":" + whileStartLabel(1),
-		"set /a cond_tmp_2=(true)",
-		"if !cond_tmp_2! equ 0 goto " + whileEndLabel(1),
 		"echo loop",
 		"goto " + whileStartLabel(1),
 		":" + whileEndLabel(1),

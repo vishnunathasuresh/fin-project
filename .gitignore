@@ -1,3 +1,6 @@
 fin.exe
 Fin-*.exe
 sample*
+*.exe
+*.dll
+*.bat
