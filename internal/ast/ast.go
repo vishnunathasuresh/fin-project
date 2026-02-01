@@ -41,16 +41,6 @@ func (*Program) node()      {}
 // ---- Statements ----
 //
 
-type SetStmt struct {
-	Name  string
-	Value Expr
-	P     Pos
-}
-
-func (s *SetStmt) Pos() Pos { return s.P }
-func (*SetStmt) node()      {}
-func (*SetStmt) stmt()      {}
-
 type AssignStmt struct {
 	Name  string
 	Value Expr
@@ -60,24 +50,6 @@ type AssignStmt struct {
 func (s *AssignStmt) Pos() Pos { return s.P }
 func (*AssignStmt) node()      {}
 func (*AssignStmt) stmt()      {}
-
-type EchoStmt struct {
-	Value Expr
-	P     Pos
-}
-
-func (s *EchoStmt) Pos() Pos { return s.P }
-func (*EchoStmt) node()      {}
-func (*EchoStmt) stmt()      {}
-
-type RunStmt struct {
-	Command Expr
-	P       Pos
-}
-
-func (s *RunStmt) Pos() Pos { return s.P }
-func (*RunStmt) node()      {}
-func (*RunStmt) stmt()      {}
 
 type CallStmt struct {
 	Name string
