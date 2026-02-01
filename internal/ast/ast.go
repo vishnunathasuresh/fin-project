@@ -37,13 +37,31 @@ type Program struct {
 func (p *Program) Pos() Pos { return p.P }
 func (*Program) node()      {}
 
+// TypeRef represents a resolved or annotated type name.
+type TypeRef struct {
+	Name string
+}
+
 //
 // ---- Statements ----
 //
 
+// DeclStmt represents a declaration with optional type annotation.
+type DeclStmt struct {
+	Name  string
+	Value Expr
+	Type  *TypeRef
+	P     Pos
+}
+
+func (s *DeclStmt) Pos() Pos { return s.P }
+func (*DeclStmt) node()      {}
+func (*DeclStmt) stmt()      {}
+
 type AssignStmt struct {
 	Name  string
 	Value Expr
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -54,6 +72,7 @@ func (*AssignStmt) stmt()      {}
 type CallStmt struct {
 	Name string
 	Args []Expr
+	Type *TypeRef
 	P    Pos
 }
 
@@ -63,8 +82,10 @@ func (*CallStmt) stmt()      {}
 
 type FnDecl struct {
 	Name   string
-	Params []string
+	Params []Param
+	Return *TypeRef
 	Body   []Statement
+	Type   *TypeRef
 	P      Pos
 }
 
@@ -76,6 +97,7 @@ type IfStmt struct {
 	Cond Expr
 	Then []Statement
 	Else []Statement
+	Type *TypeRef
 	P    Pos
 }
 
@@ -88,6 +110,7 @@ type ForStmt struct {
 	Start Expr
 	End   Expr
 	Body  []Statement
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -98,6 +121,7 @@ func (*ForStmt) stmt()      {}
 type WhileStmt struct {
 	Cond Expr
 	Body []Statement
+	Type *TypeRef
 	P    Pos
 }
 
@@ -107,6 +131,7 @@ func (*WhileStmt) stmt()      {}
 
 type ReturnStmt struct {
 	Value Expr // optional; nil means bare return
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -115,7 +140,8 @@ func (*ReturnStmt) node()      {}
 func (*ReturnStmt) stmt()      {}
 
 type BreakStmt struct {
-	P Pos
+	Type *TypeRef
+	P    Pos
 }
 
 func (s *BreakStmt) Pos() Pos { return s.P }
@@ -123,7 +149,49 @@ func (*BreakStmt) node()      {}
 func (*BreakStmt) stmt()      {}
 
 type ContinueStmt struct {
-	P Pos
+	Type *TypeRef
+	P    Pos
+}
+
+// TypeDef represents a type declaration.
+type TypeDef struct {
+	Name   string
+	Fields []Field
+	Type   *TypeRef
+	P      Pos
+}
+
+func (s *TypeDef) Pos() Pos { return s.P }
+func (*TypeDef) node()      {}
+func (*TypeDef) stmt()      {}
+
+// MethodDecl represents a method with a receiver.
+type MethodDecl struct {
+	Receiver Param
+	Name     string
+	Params   []Param
+	Return   *TypeRef
+	Body     []Statement
+	Type     *TypeRef
+	P        Pos
+}
+
+func (s *MethodDecl) Pos() Pos { return s.P }
+func (*MethodDecl) node()      {}
+func (*MethodDecl) stmt()      {}
+
+// Param is a named parameter with type.
+type Param struct {
+	Name string
+	Type *TypeRef
+	P    Pos
+}
+
+// Field is a named field with type.
+type Field struct {
+	Name string
+	Type *TypeRef
+	P    Pos
 }
 
 func (s *ContinueStmt) Pos() Pos { return s.P }
@@ -136,6 +204,7 @@ func (*ContinueStmt) stmt()      {}
 
 type ExistsCond struct {
 	Path Expr
+	Type *TypeRef
 	P    Pos
 }
 
@@ -149,6 +218,7 @@ func (*ExistsCond) expr()      {}
 
 type IdentExpr struct {
 	Name string
+	Type *TypeRef
 	P    Pos
 }
 
@@ -158,6 +228,7 @@ func (*IdentExpr) expr()      {}
 
 type StringLit struct {
 	Value string
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -167,6 +238,7 @@ func (*StringLit) expr()      {}
 
 type NumberLit struct {
 	Value string
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -176,6 +248,7 @@ func (*NumberLit) expr()      {}
 
 type ListLit struct {
 	Elements []Expr
+	Type     *TypeRef
 	P        Pos
 }
 
@@ -186,6 +259,7 @@ func (*ListLit) expr()      {}
 type MapPair struct {
 	Key   string
 	Value Expr
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -194,6 +268,7 @@ func (*MapPair) node()      {}
 
 type MapLit struct {
 	Pairs []MapPair
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -204,6 +279,7 @@ func (*MapLit) expr()      {}
 type IndexExpr struct {
 	Left  Expr
 	Index Expr
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -214,6 +290,7 @@ func (*IndexExpr) expr()      {}
 type PropertyExpr struct {
 	Object Expr
 	Field  string
+	Type   *TypeRef
 	P      Pos
 }
 
@@ -225,6 +302,7 @@ type BinaryExpr struct {
 	Left  Expr
 	Op    string
 	Right Expr
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -235,6 +313,7 @@ func (*BinaryExpr) expr()      {}
 type UnaryExpr struct {
 	Op    string
 	Right Expr
+	Type  *TypeRef
 	P     Pos
 }
 
@@ -244,8 +323,32 @@ func (*UnaryExpr) expr()      {}
 
 type BoolLit struct {
 	Value bool
+	Type  *TypeRef
 	P     Pos
 }
+
+// CommandLit captures raw command text.
+type CommandLit struct {
+	Text string
+	Type *TypeRef
+	P    Pos
+}
+
+func (e *CommandLit) Pos() Pos { return e.P }
+func (*CommandLit) node()      {}
+func (*CommandLit) expr()      {}
+
+// CallExpr represents a function/method call used as an expression.
+type CallExpr struct {
+	Callee Expr
+	Args   []Expr
+	Type   *TypeRef
+	P      Pos
+}
+
+func (e *CallExpr) Pos() Pos { return e.P }
+func (*CallExpr) node()      {}
+func (*CallExpr) expr()      {}
 
 func (e *BoolLit) Pos() Pos { return e.P }
 func (*BoolLit) node()      {}
