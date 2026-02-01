@@ -84,11 +84,10 @@ func (l *Lowerer) lowerProgram(p *ast.Program) error {
 }
 
 func (l *Lowerer) lowerFnDecl(fn *ast.FnDecl) (*Function, error) {
-	// v1 functions don't have typed params yet, so we'll use placeholder types
 	params := []Param{}
-	for _, paramName := range fn.Params {
+	for _, param := range fn.Params {
 		params = append(params, Param{
-			Name: paramName,
+			Name: param.Name,
 			Type: &BasicType{Kind: "any"}, // Placeholder until we have type system
 		})
 	}

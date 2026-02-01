@@ -13,32 +13,26 @@ import (
 
 // precedences maps infix token types to their binding power.
 var precedences = map[token.Type]int{
-	token.OR:   1,
-	token.AND:  2,
-	token.EQEQ: 3, token.NOTEQ: 3,
-	token.LT: 4, token.LTE: 4, token.GT: 4, token.GTE: 4,
 	token.PLUS: 5, token.MINUS: 5,
 	token.STAR: 6, token.SLASH: 6,
 	token.DOT:      7,
 	token.LBRACKET: 7, // index has high precedence
-	token.POW:      8, // highest, right-associative
 }
 
 var prefixParseFns map[token.Type]prefixParseFn
 
 func init() {
 	prefixParseFns = map[token.Type]prefixParseFn{
-		token.IDENT:    parseIdent,
-		token.STRING:   parseString,
-		token.NUMBER:   parseNumber,
-		token.TRUE:     parseBool,
-		token.FALSE:    parseBool,
-		token.EXISTS:   parseExists,
-		token.BANG:     parseUnary,
-		token.MINUS:    parseUnary,
-		token.LPAREN:   parseGrouped,
-		token.LBRACKET: parseList,
-		token.LBRACE:   parseMap,
+		token.IDENT:     parseIdent,
+		token.STRING:    parseString,
+		token.NUMBER:    parseNumber,
+		token.TRUE:      parseBool,
+		token.FALSE:     parseBool,
+		token.MINUS:     parseUnary,
+		token.LPAREN:    parseGrouped,
+		token.LBRACKET:  parseList,
+		token.LBRACE:    parseMap,
+		token.CMD_START: parseCommand,
 	}
 }
 
@@ -74,11 +68,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 
 func (p *Parser) infixFn(t token.Type) infixParseFn {
 	switch t {
-	case token.PLUS, token.MINUS, token.STAR, token.SLASH,
-		token.EQEQ, token.NOTEQ,
-		token.LT, token.LTE, token.GT, token.GTE,
-		token.AND, token.OR,
-		token.POW:
+	case token.PLUS, token.MINUS, token.STAR, token.SLASH:
 		return parseBinary
 	case token.LBRACKET:
 		return parseIndex
@@ -120,9 +110,8 @@ func parseBool(p *Parser) ast.Expr {
 }
 
 func parseExists(p *Parser) ast.Expr {
-	tok := p.next() // consume 'exists'
-	path := p.parseExpression(0)
-	return &ast.ExistsCond{Path: path, P: ast.Pos{Line: tok.Line, Column: tok.Column}}
+	// no longer supported in Fin v2
+	return nil
 }
 
 func parseUnary(p *Parser) ast.Expr {
@@ -208,12 +197,7 @@ func parseBinary(p *Parser, left ast.Expr) ast.Expr {
 	opTok := p.current()
 	opPrec := p.currentPrecedence()
 	p.next() // consume operator
-	// Exponentiation is right-associative; reduce precedence for RHS to bind right.
-	nextPrec := opPrec
-	if opTok.Type == token.POW {
-		nextPrec = opPrec - 1
-	}
-	right := p.parseExpression(nextPrec)
+	right := p.parseExpression(opPrec)
 	return &ast.BinaryExpr{Left: left, Op: opTok.Literal, Right: right, P: ast.Pos{Line: opTok.Line, Column: opTok.Column}}
 }
 
@@ -238,4 +222,20 @@ func parseProperty(p *Parser, left ast.Expr) ast.Expr {
 	}
 	nameTok := p.next()
 	return &ast.PropertyExpr{Object: left, Field: nameTok.Literal, P: ast.Pos{Line: dotTok.Line, Column: dotTok.Column}}
+}
+
+// parseCommand parses a command literal <...> as CommandLit.
+func parseCommand(p *Parser) ast.Expr {
+	startTok := p.next() // consume CMD_START
+	if !p.check(token.CMD_TEXT) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected command text")
+		return &ast.CommandLit{Text: "", P: ast.Pos{Line: startTok.Line, Column: startTok.Column}}
+	}
+	textTok := p.next()
+	if !p.check(token.CMD_END) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected '>' to close command literal")
+	} else {
+		p.next()
+	}
+	return &ast.CommandLit{Text: textTok.Literal, P: ast.Pos{Line: startTok.Line, Column: startTok.Column}}
 }

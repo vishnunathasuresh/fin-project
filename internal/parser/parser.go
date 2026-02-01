@@ -133,12 +133,6 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 
 	switch tok.Type {
-	case token.SET:
-		return p.parseSet()
-	case token.ECHO:
-		return p.parseEcho()
-	case token.RUN:
-		return p.parseRun()
 	case token.RETURN:
 		return p.parseReturn()
 	case token.IF:
@@ -147,14 +141,15 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseFor()
 	case token.WHILE:
 		return p.parseWhile()
-	case token.FN:
-		return p.parseFn()
 	case token.BREAK:
 		return p.parseBreak()
 	case token.CONTINUE:
 		return p.parseContinue()
 	case token.IDENT:
-		// lookahead for assignment
+		// declaration or assignment
+		if next := p.peek(); next.Type == token.DECLARE {
+			return p.parseDecl()
+		}
 		if next := p.peek(); next.Type == token.ASSIGN {
 			return p.parseAssign()
 		}
@@ -185,6 +180,18 @@ func (p *Parser) parseAssign() ast.Statement {
 	return &ast.AssignStmt{Name: nameTok.Literal, Value: val, P: ast.Pos{Line: assignTok.Line, Column: assignTok.Column}}
 }
 
+func (p *Parser) parseDecl() ast.Statement {
+	nameTok := p.next() // ident
+	declTok, ok := p.expect(token.DECLARE)
+	if !ok {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ':=' after identifier")
+		return nil
+	}
+	val := p.parseExpression(0)
+	p.consumeNewlineIfPresent()
+	return &ast.DeclStmt{Name: nameTok.Literal, Value: val, P: ast.Pos{Line: declTok.Line, Column: declTok.Column}}
+}
+
 // synchronize advances until after a newline or EOF to recover from an error.
 func (p *Parser) synchronize() {
 	for !p.isAtEnd() {
@@ -202,39 +209,6 @@ func (p *Parser) consumeNewlineIfPresent() {
 	if p.check(token.NEWLINE) {
 		p.next()
 	}
-}
-
-func (p *Parser) parseSet() ast.Statement {
-	setTok := p.next() // consume 'set'
-	nameTok, ok := p.expect(token.IDENT)
-	if !ok {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier after set")
-		return nil
-	}
-	val := p.parseExpression(0)
-	p.consumeNewlineIfPresent()
-	return &ast.SetStmt{Name: nameTok.Literal, Value: val, P: ast.Pos{Line: setTok.Line, Column: setTok.Column}}
-}
-
-func (p *Parser) parseEcho() ast.Statement {
-	echoTok := p.next() // consume 'echo'
-	var val ast.Expr
-	if !p.check(token.NEWLINE) && !p.isAtEnd() {
-		val = p.parseExpression(0)
-	}
-	p.consumeNewlineIfPresent()
-	return &ast.EchoStmt{Value: val, P: ast.Pos{Line: echoTok.Line, Column: echoTok.Column}}
-}
-
-func (p *Parser) parseRun() ast.Statement {
-	runTok := p.next() // consume 'run'
-	cmdTok, ok := p.expect(token.STRING)
-	if !ok {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected string after run")
-		return nil
-	}
-	p.consumeNewlineIfPresent()
-	return &ast.RunStmt{Command: &ast.StringLit{Value: cmdTok.Literal, P: ast.Pos{Line: cmdTok.Line, Column: cmdTok.Column}}, P: ast.Pos{Line: runTok.Line, Column: runTok.Column}}
 }
 
 func (p *Parser) parseReturn() ast.Statement {
@@ -267,17 +241,12 @@ func (p *Parser) parseIf() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after if condition")
 	}
 	p.consumeNewlineIfPresent()
-	thenBlock := p.parseBlock(token.ELSE, token.END)
+	thenBlock := p.parseBlock(token.ELSE, token.EOF)
 	var elseBlock []ast.Statement
 	if p.check(token.ELSE) {
 		p.next()
 		p.consumeNewlineIfPresent()
-		elseBlock = p.parseBlock(token.END)
-	}
-	if !p.check(token.END) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close if")
-	} else {
-		p.next() // consume end
+		elseBlock = p.parseBlock(token.EOF)
 	}
 	p.consumeNewlineIfPresent()
 	return &ast.IfStmt{Cond: cond, Then: thenBlock, Else: elseBlock, P: ast.Pos{Line: ifTok.Line, Column: ifTok.Column}}
@@ -290,11 +259,6 @@ func (p *Parser) parseFor() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier after for")
 		return nil
 	}
-	if !p.check(token.IN) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected in after for variable")
-		return nil
-	}
-	p.next() // consume 'in'
 	start := p.parseExpression(0)
 	if !p.check(token.DOTDOT) {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected .. in for range")
@@ -306,12 +270,7 @@ func (p *Parser) parseFor() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after for header")
 	}
 	p.consumeNewlineIfPresent()
-	body := p.parseBlock(token.END)
-	if !p.check(token.END) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close for")
-	} else {
-		p.next()
-	}
+	body := p.parseBlock(token.EOF)
 	p.consumeNewlineIfPresent()
 	return &ast.ForStmt{Var: iterTok.Literal, Start: start, End: end, Body: body, P: ast.Pos{Line: forTok.Line, Column: forTok.Column}}
 }
@@ -323,40 +282,9 @@ func (p *Parser) parseWhile() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after while condition")
 	}
 	p.consumeNewlineIfPresent()
-	body := p.parseBlock(token.END)
-	if !p.check(token.END) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close while")
-	} else {
-		p.next()
-	}
+	body := p.parseBlock(token.EOF)
 	p.consumeNewlineIfPresent()
 	return &ast.WhileStmt{Cond: cond, Body: body, P: ast.Pos{Line: whileTok.Line, Column: whileTok.Column}}
-}
-
-func (p *Parser) parseFn() ast.Statement {
-	fnTok := p.next() // consume 'fn'
-	nameTok, ok := p.expect(token.IDENT)
-	if !ok {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected function name")
-		return nil
-	}
-	var params []string
-	for p.check(token.IDENT) {
-		tok := p.next()
-		params = append(params, tok.Literal)
-	}
-	if !p.check(token.NEWLINE) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after fn signature")
-	}
-	p.consumeNewlineIfPresent()
-	body := p.parseBlock(token.END)
-	if !p.check(token.END) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected end to close function")
-	} else {
-		p.next()
-	}
-	p.consumeNewlineIfPresent()
-	return &ast.FnDecl{Name: nameTok.Literal, Params: params, Body: body, P: ast.Pos{Line: fnTok.Line, Column: fnTok.Column}}
 }
 
 func (p *Parser) parseBreak() ast.Statement {

@@ -15,24 +15,6 @@ func parseProgram(t *testing.T, src string) *ast.Program {
 	return p.ParseProgram()
 }
 
-func TestParse_Assign(t *testing.T) {
-	src := "set a 1\na = 2\n"
-	prog := parseProgram(t, src)
-	if len(prog.Statements) != 2 {
-		t.Fatalf("got %d statements, want 2", len(prog.Statements))
-	}
-	if _, ok := prog.Statements[0].(*ast.SetStmt); !ok {
-		t.Fatalf("stmt0 not set: %T", prog.Statements[0])
-	}
-	assign, ok := prog.Statements[1].(*ast.AssignStmt)
-	if !ok {
-		t.Fatalf("stmt1 not assign: %T", prog.Statements[1])
-	}
-	if assign.Name != "a" {
-		t.Fatalf("assign name=%q", assign.Name)
-	}
-}
-
 func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
 	t.Helper()
 	l := lexer.New(src)
@@ -41,29 +23,154 @@ func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
 	return p.ParseProgram(), p
 }
 
-func TestParse_SetEchoRunCallReturn(t *testing.T) {
-	src := "set a 1\necho $a\nrun \"cmd\"\nfoo 1 2\nreturn 42\n"
+// ---- Declaration vs Assignment Tests ----
+
+// TestParse_DeclStmt_Simple parses "name := expr"
+func TestParse_DeclStmt_Simple(t *testing.T) {
+	src := "x := 10\n"
 	prog := parseProgram(t, src)
-	if len(prog.Statements) != 5 {
-		t.Fatalf("got %d statements, want 5", len(prog.Statements))
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
 	}
-	if setStmt, ok := prog.Statements[0].(*ast.SetStmt); !ok || setStmt.Name != "a" {
-		t.Fatalf("stmt0 not set a: %T", prog.Statements[0])
+	decl, ok := prog.Statements[0].(*ast.DeclStmt)
+	if !ok {
+		t.Fatalf("stmt not DeclStmt: %T", prog.Statements[0])
 	}
-	if _, ok := prog.Statements[1].(*ast.EchoStmt); !ok {
-		t.Fatalf("stmt1 not echo: %T", prog.Statements[1])
-	}
-	if _, ok := prog.Statements[2].(*ast.RunStmt); !ok {
-		t.Fatalf("stmt2 not run: %T", prog.Statements[2])
-	}
-	if c, ok := prog.Statements[3].(*ast.CallStmt); !ok || c.Name != "foo" || len(c.Args) != 2 {
-		t.Fatalf("stmt3 not call foo with 2 args: %T", prog.Statements[3])
-	}
-	if _, ok := prog.Statements[4].(*ast.ReturnStmt); !ok {
-		t.Fatalf("stmt4 not return: %T", prog.Statements[4])
+	if decl.Name != "x" {
+		t.Fatalf("decl name = %q, want x", decl.Name)
 	}
 }
 
+// TestParse_DeclStmt_WithString tests declaration with string value
+func TestParse_DeclStmt_WithString(t *testing.T) {
+	src := "name := \"fin\"\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	decl, ok := prog.Statements[0].(*ast.DeclStmt)
+	if !ok {
+		t.Fatalf("stmt not DeclStmt: %T", prog.Statements[0])
+	}
+	if decl.Name != "name" {
+		t.Fatalf("decl name = %q, want name", decl.Name)
+	}
+}
+
+// TestParse_DeclStmt_Multiple tests multiple declarations
+func TestParse_DeclStmt_Multiple(t *testing.T) {
+	src := "x := 1\ny := 2\nz := 3\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 3 {
+		t.Fatalf("got %d statements, want 3", len(prog.Statements))
+	}
+	for i, name := range []string{"x", "y", "z"} {
+		decl, ok := prog.Statements[i].(*ast.DeclStmt)
+		if !ok {
+			t.Fatalf("stmt %d not DeclStmt: %T", i, prog.Statements[i])
+		}
+		if decl.Name != name {
+			t.Fatalf("decl %d name = %q, want %q", i, decl.Name, name)
+		}
+	}
+}
+
+// TestParse_AssignStmt_Simple parses "name = expr"
+func TestParse_AssignStmt_Simple(t *testing.T) {
+	src := "x = 20\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	assign, ok := prog.Statements[0].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("stmt not AssignStmt: %T", prog.Statements[0])
+	}
+	if assign.Name != "x" {
+		t.Fatalf("assign name = %q, want x", assign.Name)
+	}
+}
+
+// TestParse_DeclVsAssign tests the critical distinction between := and =
+func TestParse_DeclVsAssign(t *testing.T) {
+	src := "x := 1\nx = 2\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 2 {
+		t.Fatalf("got %d statements, want 2", len(prog.Statements))
+	}
+
+	decl, ok := prog.Statements[0].(*ast.DeclStmt)
+	if !ok {
+		t.Fatalf("stmt0 not DeclStmt: %T", prog.Statements[0])
+	}
+	if decl.Name != "x" {
+		t.Fatalf("decl name = %q, want x", decl.Name)
+	}
+
+	assign, ok := prog.Statements[1].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("stmt1 not AssignStmt: %T", prog.Statements[1])
+	}
+	if assign.Name != "x" {
+		t.Fatalf("assign name = %q, want x", assign.Name)
+	}
+}
+
+// TestParse_DeclWithExpression tests declaration with complex expression
+func TestParse_DeclWithExpression(t *testing.T) {
+	src := "result := 1 + 2\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	decl, ok := prog.Statements[0].(*ast.DeclStmt)
+	if !ok {
+		t.Fatalf("stmt not DeclStmt: %T", prog.Statements[0])
+	}
+	if decl.Value == nil {
+		t.Fatalf("decl value is nil")
+	}
+}
+
+// TestParse_AssignWithExpression tests assignment with complex expression
+func TestParse_AssignWithExpression(t *testing.T) {
+	src := "x = y + 1\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	assign, ok := prog.Statements[0].(*ast.AssignStmt)
+	if !ok {
+		t.Fatalf("stmt not AssignStmt: %T", prog.Statements[0])
+	}
+	if assign.Value == nil {
+		t.Fatalf("assign value is nil")
+	}
+}
+
+// TestParse_MixedDeclAndAssign tests mixing declarations and assignments
+func TestParse_MixedDeclAndAssign(t *testing.T) {
+	src := "x := 10\ny := 20\nx = x + 1\ny = y + 2\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 4 {
+		t.Fatalf("got %d statements, want 4", len(prog.Statements))
+	}
+
+	if _, ok := prog.Statements[0].(*ast.DeclStmt); !ok {
+		t.Fatalf("stmt0 not DeclStmt: %T", prog.Statements[0])
+	}
+	if _, ok := prog.Statements[1].(*ast.DeclStmt); !ok {
+		t.Fatalf("stmt1 not DeclStmt: %T", prog.Statements[1])
+	}
+	if _, ok := prog.Statements[2].(*ast.AssignStmt); !ok {
+		t.Fatalf("stmt2 not AssignStmt: %T", prog.Statements[2])
+	}
+	if _, ok := prog.Statements[3].(*ast.AssignStmt); !ok {
+		t.Fatalf("stmt3 not AssignStmt: %T", prog.Statements[3])
+	}
+}
+
+// TestParse_Call_NoArgs tests function call without arguments
 func TestParse_Call_NoArgs(t *testing.T) {
 	src := "foo\n"
 	prog := parseProgram(t, src)
@@ -76,6 +183,7 @@ func TestParse_Call_NoArgs(t *testing.T) {
 	}
 }
 
+// TestParse_Call_ManyArgs tests function call with multiple arguments
 func TestParse_Call_ManyArgs(t *testing.T) {
 	src := "foo 1 2 3\n"
 	prog := parseProgram(t, src)
@@ -88,8 +196,21 @@ func TestParse_Call_ManyArgs(t *testing.T) {
 	}
 }
 
+// TestParse_Return tests return statement
+func TestParse_Return(t *testing.T) {
+	src := "return 42\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	if _, ok := prog.Statements[0].(*ast.ReturnStmt); !ok {
+		t.Fatalf("stmt not ReturnStmt: %T", prog.Statements[0])
+	}
+}
+
+// TestParse_IfElse tests if/else control flow
 func TestParse_IfElse(t *testing.T) {
-	src := "if exists \"a\"\nfoo\nelse\nbar\nend\n"
+	src := "if true\n  x = 1\nelse\n  x = 2\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -103,8 +224,9 @@ func TestParse_IfElse(t *testing.T) {
 	}
 }
 
+// TestParse_For tests for loop
 func TestParse_For(t *testing.T) {
-	src := "for i in 1..3\nfoo\nend\n"
+	src := "for i .. 3\n  x = x + 1\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -118,19 +240,9 @@ func TestParse_For(t *testing.T) {
 	}
 }
 
-func TestParse_For_InvalidRange(t *testing.T) {
-	src := "for i in 1.3\nend\n" // missing '..'
-	prog, p := parseProgramWithParser(t, src)
-	if len(prog.Statements) != 0 {
-		t.Fatalf("got %d statements, want 0 when header invalid", len(prog.Statements))
-	}
-	if len(p.Errors()) == 0 {
-		t.Fatalf("expected errors for invalid for range syntax")
-	}
-}
-
+// TestParse_While tests while loop
 func TestParse_While(t *testing.T) {
-	src := "while 1\nfoo\nend\n"
+	src := "while true\n  x = x + 1\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -140,8 +252,9 @@ func TestParse_While(t *testing.T) {
 	}
 }
 
+// TestParse_While_Nested tests nested while loops
 func TestParse_While_Nested(t *testing.T) {
-	src := "while 1\nwhile 2\nend\nend\n"
+	src := "while true\n  while false\n    x = 1\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -158,8 +271,9 @@ func TestParse_While_Nested(t *testing.T) {
 	}
 }
 
+// TestParse_BreakAndContinue tests break and continue
 func TestParse_BreakAndContinue(t *testing.T) {
-	src := "while 1\nbreak\ncontinue\nend\n"
+	src := "while true\n  break\n  continue\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -176,23 +290,5 @@ func TestParse_BreakAndContinue(t *testing.T) {
 	}
 	if _, ok := w.Body[1].(*ast.ContinueStmt); !ok {
 		t.Fatalf("second not ContinueStmt: %T", w.Body[1])
-	}
-}
-
-func TestParse_Fn(t *testing.T) {
-	src := "fn add x y\nreturn x + y\nend\n"
-	prog := parseProgram(t, src)
-	if len(prog.Statements) != 1 {
-		t.Fatalf("got %d statements, want 1", len(prog.Statements))
-	}
-	fn, ok := prog.Statements[0].(*ast.FnDecl)
-	if !ok {
-		t.Fatalf("stmt not FnDecl: %T", prog.Statements[0])
-	}
-	if fn.Name != "add" || len(fn.Params) != 2 {
-		t.Fatalf("fn name/params wrong: %q %d", fn.Name, len(fn.Params))
-	}
-	if len(fn.Body) != 1 {
-		t.Fatalf("fn body size wrong: %d", len(fn.Body))
 	}
 }

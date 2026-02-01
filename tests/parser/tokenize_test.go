@@ -8,44 +8,46 @@ import (
 	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
-func TestCollectTokens_SimpleProgram(t *testing.T) {
-	src := "set name \"Alice\"\necho $name\n"
+func TestCollectTokens_FinV2(t *testing.T) {
+	src := "" +
+		"x := 1\n" +
+		"def foo(a: int) -> int\n\n" +
+		"cmd := <grep \"abc\" file.txt>\n"
+
 	l := lexer.New(src)
 	toks := parser.CollectTokens(l)
-
-	// Expected tokens: SET, IDENT(name), STRING("Alice"), NEWLINE, ECHO, IDENT(name), NEWLINE, EOF
-	const expectedLen = 8
-	if len(toks) != expectedLen {
-		t.Fatalf("expected %d tokens, got %d", expectedLen, len(toks))
-	}
-
-	eofCount := 0
-	for i, tok := range toks {
-		if tok.Type == token.EOF {
-			eofCount++
-			if i != len(toks)-1 {
-				t.Errorf("EOF token at index %d is not last", i)
-			}
-		}
-	}
-	if eofCount != 1 {
-		t.Fatalf("expected exactly one EOF token, got %d", eofCount)
-	}
 
 	expected := []struct {
 		typ token.Type
 		lit string
 	}{
-		{token.SET, "set"},
-		{token.IDENT, "name"},
-		{token.STRING, "Alice"},
+		{token.IDENT, "x"},
+		{token.DECLARE, ":="},
+		{token.NUMBER, "1"},
 		{token.NEWLINE, "\n"},
-		{token.ECHO, "echo"},
-		{token.IDENT, "name"},
+		{token.DEF, "def"},
+		{token.IDENT, "foo"},
+		{token.LPAREN, "("},
+		{token.IDENT, "a"},
+		{token.COLON, ":"},
+		{token.IDENT, "int"},
+		{token.RPAREN, ")"},
+		{token.ARROW, "->"},
+		{token.IDENT, "int"},
+		{token.NEWLINE, "\n"},
+		{token.NEWLINE, "\n"},
+		{token.IDENT, "cmd"},
+		{token.DECLARE, ":="},
+		{token.CMD_START, "<"},
+		{token.CMD_TEXT, "grep \"abc\" file.txt"},
+		{token.CMD_END, ">"},
 		{token.NEWLINE, "\n"},
 		{token.EOF, ""},
 	}
 
+	if len(toks) != len(expected) {
+		t.Fatalf("expected %d tokens, got %d", len(expected), len(toks))
+	}
 	for i, exp := range expected {
 		if toks[i].Type != exp.typ {
 			t.Errorf("token %d: expected type %s, got %s", i, exp.typ, toks[i].Type)

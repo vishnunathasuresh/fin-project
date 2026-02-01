@@ -3,6 +3,8 @@ package parser
 import (
 	"testing"
 
+	"github.com/vishnunathasuresh/fin-project/internal/ast"
+	"github.com/vishnunathasuresh/fin-project/internal/lexer"
 	"github.com/vishnunathasuresh/fin-project/internal/token"
 )
 
@@ -133,5 +135,47 @@ func TestHelpers_CheckMatchExpect(t *testing.T) {
 				t.Fatalf("isAtEnd = %v, want %v", atEnd, tt.finalEOF)
 			}
 		})
+	}
+}
+
+func TestParseProgram_FinV2Statements(t *testing.T) {
+	src := "" +
+		"x := 1\n" +
+		"y = x\n" +
+		"call 1 2\n" +
+		"if true\n  y = y + 1\nelse\n  y = y + 2\n\n" +
+		"for i .. 3\n  y = y + i\n\n" +
+		"while y\n  break\n\n" +
+		"return y\n" +
+		"continue\n"
+
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	prog := p.ParseProgram()
+
+	if len(prog.Statements) != 7 {
+		t.Fatalf("got %d stmts", len(prog.Statements))
+	}
+	if _, ok := prog.Statements[0].(*ast.DeclStmt); !ok {
+		t.Fatalf("stmt0 not DeclStmt: %T", prog.Statements[0])
+	}
+	if _, ok := prog.Statements[1].(*ast.AssignStmt); !ok {
+		t.Fatalf("stmt1 not AssignStmt: %T", prog.Statements[1])
+	}
+	if _, ok := prog.Statements[2].(*ast.CallStmt); !ok {
+		t.Fatalf("stmt2 not CallStmt: %T", prog.Statements[2])
+	}
+	if _, ok := prog.Statements[3].(*ast.IfStmt); !ok {
+		t.Fatalf("stmt3 not IfStmt: %T", prog.Statements[3])
+	}
+	if _, ok := prog.Statements[4].(*ast.ForStmt); !ok {
+		t.Fatalf("stmt4 not ForStmt: %T", prog.Statements[4])
+	}
+	if _, ok := prog.Statements[5].(*ast.WhileStmt); !ok {
+		t.Fatalf("stmt5 not WhileStmt: %T", prog.Statements[5])
+	}
+	if _, ok := prog.Statements[6].(*ast.ReturnStmt); !ok {
+		t.Fatalf("stmt6 not ReturnStmt: %T", prog.Statements[6])
 	}
 }

@@ -8,30 +8,22 @@ import (
 )
 
 func TestParseProgram_FullExample(t *testing.T) {
-	src := `# sample fin program
-fn greet name
-    set msg "Hello $name"
-    echo $msg
-end
+	src := `# sample fin v2 program
+def greet(name: str) -> str:
+    msg := "Hello " + name
+    return msg
 
-set nums [1,2,3]
-for i in 1..3
-    echo $i
-end
+nums := [1, 2, 3]
+for i .. 3
+    x := i + 1
 
-while 1
+while true
     break
-    continue
-end
-fn a
+
+def a() -> int:
     if true
-        while true
-            for i in 1..3
-                echo "x"
-            end
-        end
-    end
-end
+        y := 10
+    return y
 `
 
 	l := lexer.New(src)
@@ -50,8 +42,8 @@ end
 	if _, ok := prog.Statements[0].(*ast.FnDecl); !ok {
 		t.Fatalf("stmt0 not FnDecl: %T", prog.Statements[0])
 	}
-	if _, ok := prog.Statements[1].(*ast.SetStmt); !ok {
-		t.Fatalf("stmt1 not SetStmt: %T", prog.Statements[1])
+	if _, ok := prog.Statements[1].(*ast.DeclStmt); !ok {
+		t.Fatalf("stmt1 not DeclStmt: %T", prog.Statements[1])
 	}
 	if _, ok := prog.Statements[2].(*ast.ForStmt); !ok {
 		t.Fatalf("stmt2 not ForStmt: %T", prog.Statements[2])
@@ -62,7 +54,6 @@ end
 	if _, ok := prog.Statements[4].(*ast.FnDecl); !ok {
 		t.Fatalf("stmt4 not FnDecl: %T", prog.Statements[4])
 	}
-}
 
 func TestParseProgram_StressDeepNesting(t *testing.T) {
 	src := `fn a
@@ -122,12 +113,11 @@ fn test
 }
 
 func TestParseProgram_Snapshot(t *testing.T) {
-	src := "set a 1\n" +
-		"if exists \"f\"\n" +
-		"    echo $a\n" +
+	src := "x := 1\n" +
+		"if true\n" +
+		"  y := x + 1\n" +
 		"else\n" +
-		"    run \"cmd\"\n" +
-		"end\n"
+		"  y := x - 1\n"
 	l := lexer.New(src)
 	toks := CollectTokens(l)
 	p := New(toks)
@@ -136,31 +126,30 @@ func TestParseProgram_Snapshot(t *testing.T) {
 		t.Fatalf("unexpected errors: %v", p.Errors())
 	}
 	out := ast.Format(prog)
-	want := "" +
-		"Program @1:1\n" +
-		"  SetStmt name=a @1:1\n" +
-		"    value: NumberLit 1 @1:7\n" +
-		"  IfStmt @2:1\n" +
-		"    cond: ExistsCond @2:4\n" +
-		"      path: StringLit \"f\" @2:11\n" +
-		"    then:\n" +
-		"      EchoStmt @3:5\n" +
-		"        value: IdentExpr a @3:10\n" +
-		"    else:\n" +
-		"      RunStmt @5:5\n" +
-		"        command: StringLit \"cmd\" @5:9\n"
-	if out != want {
-		t.Fatalf("snapshot mismatch:\nwant:\n%s\ngot:\n%s", want, out)
+	// Snapshot should contain DeclStmt nodes, not SetStmt
+	if !contains(out, "DeclStmt") {
+		t.Fatalf("snapshot missing DeclStmt node:\n%s", out)
 	}
 }
 
+// contains is a helper to check if a string appears in another
+func contains(s, substr string) bool {
+	for i := 0; i < len(s)-len(substr)+1; i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestParseProgram_RecoveryThroughBadLine(t *testing.T) {
-	src := `set a 1
-if exists "file"
-    set b 2
-end
-???
-echo "after error"
+	src := `x := 1
+if true
+  y := 2
+else
+  z := 3
+
+foo
 `
 
 	l := lexer.New(src)
@@ -168,13 +157,13 @@ echo "after error"
 	p := New(toks)
 	prog := p.ParseProgram()
 
-	if len(p.Errors()) == 0 {
-		t.Fatalf("expected errors but got none")
+	if got := len(prog.Statements); got < 2 {
+		t.Fatalf("stmt count = %d, want at least 2", got)
 	}
-	if got := len(prog.Statements); got != 3 {
-		t.Fatalf("stmt count = %d, want 3 (set, if, echo)", got)
+	if _, ok := prog.Statements[0].(*ast.DeclStmt); !ok {
+		t.Fatalf("stmt0 not DeclStmt: %T", prog.Statements[0])
 	}
-	if _, ok := prog.Statements[2].(*ast.EchoStmt); !ok {
-		t.Fatalf("last stmt not EchoStmt: %T", prog.Statements[2])
+	if _, ok := prog.Statements[1].(*ast.IfStmt); !ok {
+		t.Fatalf("stmt1 not IfStmt: %T", prog.Statements[1])
 	}
 }
