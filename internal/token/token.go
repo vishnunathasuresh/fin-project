@@ -49,8 +49,9 @@ const (
 	SLASH   Type = "/"
 
 	// command literal delimiters
-	LANGLE Type = "<"
-	RANGLE Type = ">"
+	CMD_START Type = "CMD_START"
+	CMD_TEXT  Type = "CMD_TEXT"
+	CMD_END   Type = "CMD_END"
 )
 
 type Token struct {

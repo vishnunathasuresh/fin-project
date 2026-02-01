@@ -11,6 +11,7 @@ type Lexer struct {
 	pos   int
 	line  int
 	col   int
+	inCmd bool
 }
 
 func New(input string) *Lexer {
@@ -23,12 +24,29 @@ func New(input string) *Lexer {
 }
 
 func (l *Lexer) NextToken() token.Token {
-	l.skipWhitespaceExceptNewline()
+	if !l.inCmd {
+		l.skipWhitespaceExceptNewline()
+	}
 
 	startLine := l.line
 	startCol := l.col
 
 	ch := l.peek()
+
+	// Inside command literal: only emit CMD_TEXT or CMD_END.
+	if l.inCmd {
+		switch ch {
+		case 0:
+			return token.New(token.ILLEGAL, "unterminated command", startLine, startCol)
+		case '>':
+			l.inCmd = false
+			l.next()
+			return token.New(token.CMD_END, ">", startLine, startCol)
+		default:
+			text := l.readCommandText()
+			return token.New(token.CMD_TEXT, text, startLine, startCol)
+		}
+	}
 
 	switch {
 	case ch == 0:
@@ -95,6 +113,11 @@ func (l *Lexer) NextToken() token.Token {
 		return token.New(token.COMMA, ",", startLine, startCol)
 
 	case ch == ':':
+		if l.peekNext() == '=' {
+			l.next()
+			l.next()
+			return token.New(token.DECLARE, ":=", startLine, startCol)
+		}
 		l.next()
 		return token.New(token.COLON, ":", startLine, startCol)
 
@@ -111,15 +134,15 @@ func (l *Lexer) NextToken() token.Token {
 		return token.New(token.PLUS, "+", startLine, startCol)
 
 	case ch == '-':
+		if l.peekNext() == '>' {
+			l.next()
+			l.next()
+			return token.New(token.ARROW, "->", startLine, startCol)
+		}
 		l.next()
 		return token.New(token.MINUS, "-", startLine, startCol)
 
 	case ch == '*':
-		if l.peekNext() == '*' {
-			l.next()
-			l.next()
-			return token.New(token.POW, "**", startLine, startCol)
-		}
 		l.next()
 		return token.New(token.STAR, "*", startLine, startCol)
 
@@ -127,59 +150,20 @@ func (l *Lexer) NextToken() token.Token {
 		l.next()
 		return token.New(token.SLASH, "/", startLine, startCol)
 
-	case ch == '!':
-		if l.peekNext() == '=' {
-			l.next()
-			l.next()
-			return token.New(token.NOTEQ, "!=", startLine, startCol)
-		}
-		l.next()
-		return token.New(token.BANG, "!", startLine, startCol)
-
 	case ch == '=':
-		if l.peekNext() == '=' {
-			l.next()
-			l.next()
-			return token.New(token.EQEQ, "==", startLine, startCol)
-		}
 		l.next()
 		return token.New(token.ASSIGN, "=", startLine, startCol)
 
 	case ch == '<':
-		if l.peekNext() == '=' {
-			l.next()
-			l.next()
-			return token.New(token.LTE, "<=", startLine, startCol)
-		}
+		// command literal start
+		l.inCmd = true
 		l.next()
-		return token.New(token.LT, "<", startLine, startCol)
+		return token.New(token.CMD_START, "<", startLine, startCol)
 
 	case ch == '>':
-		if l.peekNext() == '=' {
-			l.next()
-			l.next()
-			return token.New(token.GTE, ">=", startLine, startCol)
-		}
+		// standalone '>' outside command is ILLEGAL under Fin v2
 		l.next()
-		return token.New(token.GT, ">", startLine, startCol)
-
-	case ch == '&':
-		if l.peekNext() == '&' {
-			l.next()
-			l.next()
-			return token.New(token.AND, "&&", startLine, startCol)
-		}
-		l.next()
-		return token.New(token.ILLEGAL, "&", startLine, startCol)
-
-	case ch == '|':
-		if l.peekNext() == '|' {
-			l.next()
-			l.next()
-			return token.New(token.OR, "||", startLine, startCol)
-		}
-		l.next()
-		return token.New(token.ILLEGAL, "|", startLine, startCol)
+		return token.New(token.ILLEGAL, ">", startLine, startCol)
 
 	default:
 		l.next()
@@ -247,6 +231,19 @@ func (l *Lexer) readIdentifier() string {
 func (l *Lexer) readNumber() string {
 	start := l.pos
 	for isDigit(l.peek()) {
+		l.next()
+	}
+	return string(l.input[start:l.pos])
+}
+
+// readCommandText reads raw text until the next '>' or EOF without consuming the '>' delimiter.
+func (l *Lexer) readCommandText() string {
+	start := l.pos
+	for {
+		ch := l.peek()
+		if ch == 0 || ch == '>' {
+			break
+		}
 		l.next()
 	}
 	return string(l.input[start:l.pos])
