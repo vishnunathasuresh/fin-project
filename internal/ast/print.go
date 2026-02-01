@@ -46,7 +46,10 @@ func (p *printer) printNode(n Node, level int, label string) {
 			p.printNode(s, level+1, "")
 		}
 	case *AssignStmt:
-		fmt.Fprintf(p.buf, "AssignStmt name=%s @%d:%d\n", node.Name, node.P.Line, node.P.Column)
+		fmt.Fprintf(p.buf, "AssignStmt names=%v @%d:%d\n", node.Names, node.P.Line, node.P.Column)
+		p.printNode(node.Value, level+1, "value")
+	case *DeclStmt:
+		fmt.Fprintf(p.buf, "DeclStmt names=%v @%d:%d\n", node.Names, node.P.Line, node.P.Column)
 		p.printNode(node.Value, level+1, "value")
 	case *CallStmt:
 		fmt.Fprintf(p.buf, "CallStmt name=%s @%d:%d\n", node.Name, node.P.Line, node.P.Column)

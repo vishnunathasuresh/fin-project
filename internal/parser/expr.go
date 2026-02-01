@@ -17,6 +17,7 @@ var precedences = map[token.Type]int{
 	token.STAR: 6, token.SLASH: 6,
 	token.DOT:      7,
 	token.LBRACKET: 7, // index has high precedence
+	token.LPAREN:   8, // function call has highest precedence
 }
 
 var prefixParseFns map[token.Type]prefixParseFn
@@ -74,6 +75,8 @@ func (p *Parser) infixFn(t token.Type) infixParseFn {
 		return parseIndex
 	case token.DOT:
 		return parseProperty
+	case token.LPAREN:
+		return parseCallExpr
 	default:
 		return nil
 	}
@@ -238,4 +241,60 @@ func parseCommand(p *Parser) ast.Expr {
 		p.next()
 	}
 	return &ast.CommandLit{Text: textTok.Literal, P: ast.Pos{Line: startTok.Line, Column: startTok.Column}}
+}
+
+// parseCallExpr parses a function call expression: name(args, key=value, ...)
+func parseCallExpr(p *Parser, callee ast.Expr) ast.Expr {
+	lpTok := p.current()
+	p.next() // consume '('
+
+	var args []ast.Expr
+	var namedArgs []ast.NamedArg
+
+	// Parse arguments (both positional and named)
+	for !p.check(token.RPAREN) && !p.isAtEnd() {
+		// Check if this is a named argument by looking ahead: ident = value
+		if p.check(token.IDENT) {
+			// Peek ahead to see if there's an '=' after the identifier
+			nextPos := p.pos + 1
+			if nextPos < len(p.tokens) && p.tokens[nextPos].Type == token.ASSIGN {
+				// This is a named argument
+				nameTok := p.next() // consume identifier
+				p.next()            // consume '='
+				val := p.parseExpression(0)
+				namedArgs = append(namedArgs, ast.NamedArg{
+					Name:  nameTok.Literal,
+					Value: val,
+					P:     ast.Pos{Line: nameTok.Line, Column: nameTok.Column},
+				})
+			} else {
+				// This is a positional argument
+				args = append(args, p.parseExpression(0))
+			}
+		} else {
+			// Not an identifier, so it's definitely a positional argument
+			args = append(args, p.parseExpression(0))
+		}
+
+		// Check for comma or end of args
+		if p.check(token.COMMA) {
+			p.next() // consume ','
+		} else if !p.check(token.RPAREN) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ) in function call arguments")
+			break
+		}
+	}
+
+	if !p.check(token.RPAREN) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ) after function call arguments")
+	} else {
+		p.next() // consume ')'
+	}
+
+	return &ast.CallExpr{
+		Callee:    callee,
+		Args:      args,
+		NamedArgs: namedArgs,
+		P:         ast.Pos{Line: lpTok.Line, Column: lpTok.Column},
+	}
 }

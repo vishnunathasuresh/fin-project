@@ -133,6 +133,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 
 	switch tok.Type {
+	case token.DEF:
+		return p.parseFn()
 	case token.RETURN:
 		return p.parseReturn()
 	case token.IF:
@@ -154,6 +156,18 @@ func (p *Parser) parseStatement() ast.Statement {
 			return p.parseAssign()
 		}
 		return p.parseCall()
+	case token.LPAREN:
+		// Might be tuple unpacking: (x, y) := ... or (x, y) = ...
+		// Peek ahead to check if it's a tuple pattern
+		if p.isTuplePattern() {
+			if p.peekAheadFor(token.DECLARE) {
+				return p.parseDecl()
+			}
+			if p.peekAheadFor(token.ASSIGN) {
+				return p.parseAssign()
+			}
+		}
+		fallthrough
 	default:
 		p.reportError(p.tokenPos(tok), diagnostics.ErrUnexpectedToken, fmt.Sprintf("unexpected token: %s", tok.Type))
 		p.next()
@@ -168,8 +182,83 @@ func (p *Parser) peek() token.Token {
 	return p.tokens[p.pos+1]
 }
 
+// isTuplePattern checks if the current position starts a tuple pattern like (x, y, z)
+func (p *Parser) isTuplePattern() bool {
+	if !p.check(token.LPAREN) {
+		return false
+	}
+	// Scan forward to check if it looks like (ident, ident, ...) without assignments
+	i := p.pos + 1
+	for i < len(p.tokens) {
+		if p.tokens[i].Type == token.RPAREN {
+			return true // Found closing paren, looks like a tuple
+		}
+		if p.tokens[i].Type == token.IDENT {
+			i++
+			// After ident, expect COMMA or RPAREN
+			if i < len(p.tokens) {
+				if p.tokens[i].Type == token.COMMA {
+					i++
+					continue
+				}
+				if p.tokens[i].Type == token.RPAREN {
+					return true
+				}
+			}
+		}
+		// If we see anything else, it's not a tuple pattern
+		return false
+	}
+	return false
+}
+
+// peekAheadFor looks ahead in the token stream to find a specific token type
+// Useful for checking if there's a := or = after a tuple pattern
+func (p *Parser) peekAheadFor(t token.Type) bool {
+	for i := p.pos; i < len(p.tokens); i++ {
+		if p.tokens[i].Type == t {
+			return true
+		}
+		// Stop if we hit newline or other statement-ending tokens
+		if p.tokens[i].Type == token.NEWLINE || p.tokens[i].Type == token.EOF {
+			return false
+		}
+	}
+	return false
+}
+
 func (p *Parser) parseAssign() ast.Statement {
-	nameTok := p.next() // ident
+	// Parse names: could be "x" or "(x, y, z)"
+	var names []string
+
+	if p.check(token.LPAREN) {
+		// Tuple unpacking: (x, y, z) = ...
+		p.next() // consume '('
+		for !p.check(token.RPAREN) && !p.isAtEnd() {
+			nameTok, ok := p.expect(token.IDENT)
+			if !ok {
+				p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier in tuple")
+				return nil
+			}
+			names = append(names, nameTok.Literal)
+			if p.check(token.COMMA) {
+				p.next() // consume ','
+			} else if !p.check(token.RPAREN) {
+				p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ) in tuple")
+				return nil
+			}
+		}
+		if !p.check(token.RPAREN) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ) after tuple")
+			return nil
+		}
+		p.next() // consume ')'
+	} else {
+		// Single name: x = ...
+		nameTok := p.next() // ident
+		names = append(names, nameTok.Literal)
+	}
+
 	assignTok, ok := p.expect(token.ASSIGN)
 	if !ok {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected '=' after identifier")
@@ -177,11 +266,41 @@ func (p *Parser) parseAssign() ast.Statement {
 	}
 	val := p.parseExpression(0)
 	p.consumeNewlineIfPresent()
-	return &ast.AssignStmt{Name: nameTok.Literal, Value: val, P: ast.Pos{Line: assignTok.Line, Column: assignTok.Column}}
+	return &ast.AssignStmt{Names: names, Value: val, P: ast.Pos{Line: assignTok.Line, Column: assignTok.Column}}
 }
 
 func (p *Parser) parseDecl() ast.Statement {
-	nameTok := p.next() // ident
+	// Parse names: could be "x" or "(x, y, z)"
+	var names []string
+
+	if p.check(token.LPAREN) {
+		// Tuple unpacking: (x, y, z) := ...
+		p.next() // consume '('
+		for !p.check(token.RPAREN) && !p.isAtEnd() {
+			nameTok, ok := p.expect(token.IDENT)
+			if !ok {
+				p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier in tuple")
+				return nil
+			}
+			names = append(names, nameTok.Literal)
+			if p.check(token.COMMA) {
+				p.next() // consume ','
+			} else if !p.check(token.RPAREN) {
+				p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ) in tuple")
+				return nil
+			}
+		}
+		if !p.check(token.RPAREN) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ) after tuple")
+			return nil
+		}
+		p.next() // consume ')'
+	} else {
+		// Single name: x := ...
+		nameTok := p.next() // ident
+		names = append(names, nameTok.Literal)
+	}
+
 	declTok, ok := p.expect(token.DECLARE)
 	if !ok {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ':=' after identifier")
@@ -189,7 +308,7 @@ func (p *Parser) parseDecl() ast.Statement {
 	}
 	val := p.parseExpression(0)
 	p.consumeNewlineIfPresent()
-	return &ast.DeclStmt{Name: nameTok.Literal, Value: val, P: ast.Pos{Line: declTok.Line, Column: declTok.Column}}
+	return &ast.DeclStmt{Names: names, Value: val, P: ast.Pos{Line: declTok.Line, Column: declTok.Column}}
 }
 
 // synchronize advances until after a newline or EOF to recover from an error.
@@ -297,6 +416,104 @@ func (p *Parser) parseContinue() ast.Statement {
 	ctTok := p.next() // consume 'continue'
 	p.consumeNewlineIfPresent()
 	return &ast.ContinueStmt{P: ast.Pos{Line: ctTok.Line, Column: ctTok.Column}}
+}
+
+// parseFn parses: def name(param: type, ...) -> return_type:
+//
+//	    body...
+//	end
+func (p *Parser) parseFn() ast.Statement {
+	defTok := p.next() // consume 'def'
+
+	// Parse function name
+	nameTok, ok := p.expect(token.IDENT)
+	if !ok {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected function name after def")
+		return nil
+	}
+
+	// Parse parameter list: (param: type, ...)
+	if !p.check(token.LPAREN) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ( after function name")
+		return nil
+	}
+	p.next() // consume '('
+
+	params := []ast.Param{}
+	for !p.check(token.RPAREN) && !p.isAtEnd() {
+		// Parse parameter: name: type
+		paramTok, ok := p.expect(token.IDENT)
+		if !ok {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter name")
+			return nil
+		}
+
+		if !p.check(token.COLON) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after parameter name")
+			return nil
+		}
+		p.next() // consume ':'
+
+		// Parse parameter type
+		typeTok, ok := p.expect(token.IDENT)
+		if !ok {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter type")
+			return nil
+		}
+
+		params = append(params, ast.Param{
+			Name: paramTok.Literal,
+			Type: &ast.TypeRef{Name: typeTok.Literal},
+			P:    ast.Pos{Line: paramTok.Line, Column: paramTok.Column},
+		})
+
+		// Check for comma or end of parameters
+		if p.check(token.COMMA) {
+			p.next() // consume ','
+		} else if !p.check(token.RPAREN) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ) in parameter list")
+			return nil
+		}
+	}
+
+	if !p.check(token.RPAREN) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected ) after parameters")
+		return nil
+	}
+	p.next() // consume ')'
+
+	// Parse return type: -> return_type
+	if !p.check(token.ARROW) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected -> after parameters")
+		return nil
+	}
+	p.next() // consume '->'
+
+	returnTok, ok := p.expect(token.IDENT)
+	if !ok {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected return type")
+		return nil
+	}
+	returnType := &ast.TypeRef{Name: returnTok.Literal}
+
+	// Expect ':' and newline
+	if !p.check(token.COLON) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after return type")
+		return nil
+	}
+	p.next() // consume ':'
+	p.consumeNewlineIfPresent()
+
+	// Parse function body
+	body := p.parseBlock(token.EOF)
+
+	return &ast.FnDecl{
+		Name:   nameTok.Literal,
+		Params: params,
+		Return: returnType,
+		Body:   body,
+		P:      ast.Pos{Line: defTok.Line, Column: defTok.Column},
+	}
 }
 
 func (p *Parser) parseBlock(until token.Type, others ...token.Type) []ast.Statement {

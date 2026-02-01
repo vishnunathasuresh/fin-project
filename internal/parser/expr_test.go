@@ -270,3 +270,71 @@ func TestParseExpression_MapMultipleKeys(t *testing.T) {
 		t.Fatalf("map keys wrong: %q %q", mapLit.Pairs[0].Key, mapLit.Pairs[1].Key)
 	}
 }
+
+func TestParseExpression_CommandLiteral_Simple(t *testing.T) {
+	expr := parseExpr(t, "<echo hello>")
+	cmd, ok := expr.(*ast.CommandLit)
+	if !ok {
+		t.Fatalf("expr not CommandLit: %T", expr)
+	}
+	if cmd.Text != "echo hello" {
+		t.Fatalf("command text = %q, want 'echo hello'", cmd.Text)
+	}
+}
+
+func TestParseExpression_CommandLiteral_Piped(t *testing.T) {
+	expr := parseExpr(t, "<grep pattern file.txt>")
+	cmd, ok := expr.(*ast.CommandLit)
+	if !ok {
+		t.Fatalf("expr not CommandLit: %T", expr)
+	}
+	if cmd.Text != "grep pattern file.txt" {
+		t.Fatalf("command text = %q, want 'grep pattern file.txt'", cmd.Text)
+	}
+}
+
+func TestParseExpression_CommandLiteral_Complex(t *testing.T) {
+	expr := parseExpr(t, "<find . -name *.go | wc -l>")
+	cmd, ok := expr.(*ast.CommandLit)
+	if !ok {
+		t.Fatalf("expr not CommandLit: %T", expr)
+	}
+	expected := "find . -name *.go | wc -l"
+	if cmd.Text != expected {
+		t.Fatalf("command text = %q, want %q", cmd.Text, expected)
+	}
+}
+
+func TestParseExpression_CommandLiteral_InDeclaration(t *testing.T) {
+	src := "cmd := <echo test>"
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	stmt := p.parseStatement()
+	declStmt, ok := stmt.(*ast.DeclStmt)
+	if !ok {
+		t.Fatalf("stmt not DeclStmt: %T", stmt)
+	}
+	if len(declStmt.Names) != 1 || declStmt.Names[0] != "cmd" {
+		t.Fatalf("decl names = %v, want [cmd]", declStmt.Names)
+	}
+	cmd, ok := declStmt.Value.(*ast.CommandLit)
+	if !ok {
+		t.Fatalf("value not CommandLit: %T", declStmt.Value)
+	}
+	if cmd.Text != "echo test" {
+		t.Fatalf("command text = %q, want 'echo test'", cmd.Text)
+	}
+}
+
+func TestParseExpression_CommandLiteral_WithSpecialChars(t *testing.T) {
+	expr := parseExpr(t, "<ls -la /tmp/*.txt | grep -v tmp>")
+	cmd, ok := expr.(*ast.CommandLit)
+	if !ok {
+		t.Fatalf("expr not CommandLit: %T", expr)
+	}
+	expected := "ls -la /tmp/*.txt | grep -v tmp"
+	if cmd.Text != expected {
+		t.Fatalf("command text = %q, want %q", cmd.Text, expected)
+	}
+}

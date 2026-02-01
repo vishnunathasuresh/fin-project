@@ -48,7 +48,7 @@ type TypeRef struct {
 
 // DeclStmt represents a declaration with optional type annotation.
 type DeclStmt struct {
-	Name  string
+	Names []string // Can be a single name or multiple names for tuple unpacking
 	Value Expr
 	Type  *TypeRef
 	P     Pos
@@ -59,7 +59,7 @@ func (*DeclStmt) node()      {}
 func (*DeclStmt) stmt()      {}
 
 type AssignStmt struct {
-	Name  string
+	Names []string // Can be a single name or multiple names for tuple unpacking
 	Value Expr
 	Type  *TypeRef
 	P     Pos
@@ -338,12 +338,24 @@ func (e *CommandLit) Pos() Pos { return e.P }
 func (*CommandLit) node()      {}
 func (*CommandLit) expr()      {}
 
+// NamedArg represents a named argument in a function call: name=value
+type NamedArg struct {
+	Name  string
+	Value Expr
+	P     Pos
+}
+
+func (e *NamedArg) Pos() Pos { return e.P }
+func (*NamedArg) node()      {}
+func (*NamedArg) expr()      {}
+
 // CallExpr represents a function/method call used as an expression.
 type CallExpr struct {
-	Callee Expr
-	Args   []Expr
-	Type   *TypeRef
-	P      Pos
+	Callee    Expr
+	Args      []Expr     // positional arguments
+	NamedArgs []NamedArg // named arguments (e.g., platform=bash, cmd=cmd)
+	Type      *TypeRef
+	P         Pos
 }
 
 func (e *CallExpr) Pos() Pos { return e.P }

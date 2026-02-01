@@ -54,6 +54,7 @@ def a() -> int:
 	if _, ok := prog.Statements[4].(*ast.FnDecl); !ok {
 		t.Fatalf("stmt4 not FnDecl: %T", prog.Statements[4])
 	}
+}
 
 func TestParseProgram_StressDeepNesting(t *testing.T) {
 	src := `fn a
