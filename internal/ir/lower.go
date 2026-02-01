@@ -40,7 +40,7 @@ func Lower(astProg *ast.Program) (*Program, error) {
 func (l *Lowerer) lowerProgram(p *ast.Program) error {
 	// Collect top-level statements (non-function declarations) for implicit main
 	var mainBody []ast.Statement
-	
+
 	// Separate function declarations from top-level statements
 	for _, stmt := range p.Statements {
 		if fn, ok := stmt.(*ast.FnDecl); ok {
