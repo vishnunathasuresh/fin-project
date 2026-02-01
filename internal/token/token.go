@@ -11,17 +11,22 @@ const (
 	STRING  Type = "STRING"
 	NEWLINE Type = "NEWLINE"
 
-	SET    Type = "SET"
-	ECHO   Type = "ECHO"
-	RUN    Type = "RUN"
-	IF     Type = "IF"
-	ELSE   Type = "ELSE"
-	END    Type = "END"
-	FOR    Type = "FOR"
-	IN     Type = "IN"
-	EXISTS Type = "EXISTS"
-	FN     Type = "FN"
+	// keywords
+	DEF      Type = "DEF"
+	TYPE     Type = "TYPE"
+	IMPORT   Type = "IMPORT"
+	NIL      Type = "NIL"
+	IF       Type = "IF"
+	ELSE     Type = "ELSE"
+	FOR      Type = "FOR"
+	WHILE    Type = "WHILE"
+	RETURN   Type = "RETURN"
+	BREAK    Type = "BREAK"
+	CONTINUE Type = "CONTINUE"
+	TRUE     Type = "TRUE"
+	FALSE    Type = "FALSE"
 
+	// punctuation
 	DOTDOT Type = ".."
 	DOT    Type = "."
 
@@ -33,27 +38,19 @@ const (
 	RPAREN   Type = ")"
 	COMMA    Type = ","
 	COLON    Type = ":"
-	WHILE    Type = "WHILE"
-	RETURN   Type = "RETURN"
-	BREAK    Type = "BREAK"
-	CONTINUE Type = "CONTINUE"
-	TRUE     Type = "TRUE"
-	FALSE    Type = "FALSE"
-	ASSIGN   Type = "="
-	PLUS     Type = "+"
-	MINUS    Type = "-"
-	STAR     Type = "*"
-	SLASH    Type = "/"
-	BANG     Type = "!"
-	POW      Type = "**"
-	EQEQ     Type = "=="
-	NOTEQ    Type = "!="
-	LT       Type = "<"
-	LTE      Type = "<="
-	GT       Type = ">"
-	GTE      Type = ">="
-	AND      Type = "&&"
-	OR       Type = "||"
+
+	// operators
+	DECLARE Type = ":="
+	ASSIGN  Type = "="
+	ARROW   Type = "->"
+	PLUS    Type = "+"
+	MINUS   Type = "-"
+	STAR    Type = "*"
+	SLASH   Type = "/"
+
+	// command literal delimiters
+	LANGLE Type = "<"
+	RANGLE Type = ">"
 )
 
 type Token struct {
@@ -73,12 +70,12 @@ func New(t Type, lit string, line, col int) Token {
 }
 
 var Keywords = map[string]Type{
-	"set":      SET,
-	"echo":     ECHO,
-	"run":      RUN,
+	"def":      DEF,
+	"type":     TYPE,
+	"import":   IMPORT,
+	"nil":      NIL,
 	"if":       IF,
 	"else":     ELSE,
-	"end":      END,
 	"for":      FOR,
 	"while":    WHILE,
 	"return":   RETURN,
@@ -86,9 +83,6 @@ var Keywords = map[string]Type{
 	"continue": CONTINUE,
 	"true":     TRUE,
 	"false":    FALSE,
-	"in":       IN,
-	"exists":   EXISTS,
-	"fn":       FN,
 }
 
 func LookupIdent(ident string) Type {
