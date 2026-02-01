@@ -157,15 +157,15 @@ Go-like error handling is the intended model.
 
 ```python
 if x > 0:
-    run <echo "positive">
+    run(bash, <echo "positive">) 
 else:
-    run <echo "zero">
+    run(bash, <echo "zero">)
 
 for i in range(0, 3):
-    run <echo i>
+    run(bash, <echo i>)
 
 while ready:
-    run <sleep 1>
+    run(bash, <sleep 1>)
 
 ```
 
@@ -208,6 +208,19 @@ Rules:
 
 Method calls are resolved at compile time.
 
+### Error Handling like go
+```python
+
+def divide(a: int, b: int) -> (int, error):
+    if b == 0:
+        return 0, error("division by zero")
+    return a / b, nil
+result, err := divide(10, 0)
+if err != nil:
+    run(bash, <echo "Error: " + err>)
+else:
+    run(bash, <echo "Result: " + result>)
+```
 ---
 
 ## 10. Built-in and Standard Library (Locked)
@@ -249,6 +262,31 @@ std.filter(list, fn(x: T) -> bool: expr)
 std.reduce(list, init, fn(acc: U, x: T) -> U: expr)
 ```
 
+there is a std.range(start: int, end: int) -> list[int] function:
+
+```python
+nums := std.range(0, 10)
+
+```
+```python
+also there is a 
+a,b,c := std.params() function that returns the command line parameters as a list of evaluated vals.
+
+args := std.params()
+std.print("First arg: " + args[0]) # ECHOS THE THING
+std.error("Error arg: " + args[1]) # ECHOS THE THING TO STDERR
+```
+also std.eval(string) -> str function that evaluates a string as a fin expression and returns the result as a string.
+
+```python
+result := std.eval("24")    
+```
+
+also an input fn that reads a line from stdin
+
+```python
+line := std.input("Enter something: ")
+```
 Rules:
 
 * Functions must be pure
