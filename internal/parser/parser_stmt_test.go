@@ -25,6 +25,34 @@ func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
 
 // ---- Declaration vs Assignment Tests ----
 
+func TestParse_IfElifElse(t *testing.T) {
+	src := "if a\n  x := 1\nelif b\n  x := 2\nelse\n  x := 3\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	ifStmt, ok := prog.Statements[0].(*ast.IfStmt)
+	if !ok {
+		t.Fatalf("stmt not IfStmt: %T", prog.Statements[0])
+	}
+	if len(ifStmt.Then) != 1 {
+		t.Fatalf("then len = %d, want 1", len(ifStmt.Then))
+	}
+	if len(ifStmt.Else) != 1 {
+		t.Fatalf("else len = %d, want 1 (elif as nested if)", len(ifStmt.Else))
+	}
+	elifStmt, ok := ifStmt.Else[0].(*ast.IfStmt)
+	if !ok {
+		t.Fatalf("elif node not IfStmt: %T", ifStmt.Else[0])
+	}
+	if len(elifStmt.Then) != 1 {
+		t.Fatalf("elif then len = %d, want 1", len(elifStmt.Then))
+	}
+	if len(elifStmt.Else) != 1 {
+		t.Fatalf("elif else len = %d, want 1", len(elifStmt.Else))
+	}
+}
+
 // TestParse_DeclStmt_Simple parses "name := expr"
 func TestParse_DeclStmt_Simple(t *testing.T) {
 	src := "x := 10\n"
@@ -234,7 +262,7 @@ func TestParse_Return(t *testing.T) {
 
 // TestParse_IfElse tests if/else control flow
 func TestParse_IfElse(t *testing.T) {
-	src := "if true\n  x = 1\nelse\n  x = 2\n"
+	src := "if true\n  x := 1\nelse\n  x := 2\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))

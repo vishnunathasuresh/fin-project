@@ -63,3 +63,9 @@ func TestLexPlatformKeywords(t *testing.T) {
 	toks := collectTokens(l)
 	assertTokenSeq(t, toks, []token.Type{token.BASH, token.BAT, token.PS1, token.NEWLINE, token.EOF})
 }
+
+func TestLexElifKeyword(t *testing.T) {
+	l := New("elif\n")
+	toks := collectTokens(l)
+	assertTokenSeq(t, toks, []token.Type{token.ELIF, token.NEWLINE, token.EOF})
+}

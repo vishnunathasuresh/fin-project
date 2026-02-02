@@ -18,6 +18,7 @@ const (
 	NIL      Type = "NIL"
 	IF       Type = "IF"
 	ELSE     Type = "ELSE"
+	ELIF     Type = "ELIF"
 	FOR      Type = "FOR"
 	WHILE    Type = "WHILE"
 	RETURN   Type = "RETURN"
@@ -85,6 +86,7 @@ var Keywords = map[string]Type{
 	"nil":      NIL,
 	"if":       IF,
 	"else":     ELSE,
+	"elif":     ELIF,
 	"for":      FOR,
 	"while":    WHILE,
 	"return":   RETURN,

@@ -360,15 +360,38 @@ func (p *Parser) parseIf() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after if condition")
 	}
 	p.consumeNewlineIfPresent()
-	thenBlock := p.parseBlock(token.ELSE, token.EOF)
+	thenBlock := p.parseBlock(token.ELSE, token.ELIF, token.EOF)
 	var elseBlock []ast.Statement
-	if p.check(token.ELSE) {
+	if p.check(token.ELIF) {
+		elseBlock = []ast.Statement{p.parseElifChain()}
+	} else if p.check(token.ELSE) {
 		p.next()
 		p.consumeNewlineIfPresent()
 		elseBlock = p.parseBlock(token.EOF)
 	}
 	p.consumeNewlineIfPresent()
 	return &ast.IfStmt{Cond: cond, Then: thenBlock, Else: elseBlock, P: ast.Pos{Line: ifTok.Line, Column: ifTok.Column}}
+}
+
+// parseElifChain parses an elif branch (and any following elif/else) as a nested IfStmt used in Else.
+func (p *Parser) parseElifChain() ast.Statement {
+	elifTok := p.next() // consume 'elif'
+	cond := p.parseExpression(0)
+	if !p.check(token.NEWLINE) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after elif condition")
+	}
+	p.consumeNewlineIfPresent()
+	thenBlock := p.parseBlock(token.ELSE, token.ELIF, token.EOF)
+	var elseBlock []ast.Statement
+	if p.check(token.ELIF) {
+		elseBlock = []ast.Statement{p.parseElifChain()}
+	} else if p.check(token.ELSE) {
+		p.next()
+		p.consumeNewlineIfPresent()
+		elseBlock = p.parseBlock(token.EOF)
+	}
+	p.consumeNewlineIfPresent()
+	return &ast.IfStmt{Cond: cond, Then: thenBlock, Else: elseBlock, P: ast.Pos{Line: elifTok.Line, Column: elifTok.Column}}
 }
 
 func (p *Parser) parseFor() ast.Statement {
