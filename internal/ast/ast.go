@@ -110,6 +110,7 @@ type ForStmt struct {
 	Start Expr
 	End   Expr
 	Body  []Statement
+	Else  []Statement // optional else branch executed if loop not exited early (fin-v2)
 	Type  *TypeRef
 	P     Pos
 }

@@ -427,9 +427,17 @@ func (p *Parser) parseFor() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after for header")
 	}
 	p.consumeNewlineIfPresent()
-	body := p.parseBlock(token.EOF)
+	body := p.parseBlock(token.ELSE, token.EOF)
+
+	var elseBlock []ast.Statement
+	if p.check(token.ELSE) {
+		p.next()
+		p.consumeNewlineIfPresent()
+		elseBlock = p.parseBlock(token.EOF)
+	}
+
 	p.consumeNewlineIfPresent()
-	return &ast.ForStmt{Var: iterTok.Literal, Start: start, End: end, Body: body, P: ast.Pos{Line: forTok.Line, Column: forTok.Column}}
+	return &ast.ForStmt{Var: iterTok.Literal, Start: start, End: end, Body: body, Else: elseBlock, P: ast.Pos{Line: forTok.Line, Column: forTok.Column}}
 }
 
 func (p *Parser) parseWhile() ast.Statement {

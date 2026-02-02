@@ -15,6 +15,24 @@ func parseProgram(t *testing.T, src string) *ast.Program {
 	return p.ParseProgram()
 }
 
+func TestParse_ForElse(t *testing.T) {
+	src := "for i .. 3\n  x := i\nelse\n  y := 0\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 1 {
+		t.Fatalf("got %d statements, want 1", len(prog.Statements))
+	}
+	forStmt, ok := prog.Statements[0].(*ast.ForStmt)
+	if !ok {
+		t.Fatalf("stmt not ForStmt: %T", prog.Statements[0])
+	}
+	if len(forStmt.Body) != 1 {
+		t.Fatalf("body len = %d, want 1", len(forStmt.Body))
+	}
+	if len(forStmt.Else) != 1 {
+		t.Fatalf("else len = %d, want 1", len(forStmt.Else))
+	}
+}
+
 func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
 	t.Helper()
 	l := lexer.New(src)
