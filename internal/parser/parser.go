@@ -487,27 +487,27 @@ func (p *Parser) parseFn() ast.Statement {
 
 	params := []ast.Param{}
 	for !p.check(token.RPAREN) && !p.isAtEnd() {
-		// Parse parameter: name: type (type optional for now)
+		// Parse parameter: name: type (type required in v2)
 		paramTok, ok := p.expect(token.IDENT)
 		if !ok {
 			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter name")
 			return nil
 		}
 
-		var typ *ast.TypeRef
-		if p.check(token.COLON) {
-			p.next() // consume ':'
-			typeTok, ok := p.expect(token.IDENT)
-			if !ok {
-				p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter type")
-				return nil
-			}
-			typ = &ast.TypeRef{Name: typeTok.Literal}
+		if !p.check(token.COLON) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after parameter name")
+			return nil
+		}
+		p.next() // consume ':'
+		typeTok, ok := p.expect(token.IDENT)
+		if !ok {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter type")
+			return nil
 		}
 
 		params = append(params, ast.Param{
 			Name: paramTok.Literal,
-			Type: typ, // TODO(fin-v2): enforce/parse explicit types when type checker is ready
+			Type: &ast.TypeRef{Name: typeTok.Literal},
 			P:    ast.Pos{Line: paramTok.Line, Column: paramTok.Column},
 		})
 
@@ -526,21 +526,23 @@ func (p *Parser) parseFn() ast.Statement {
 	}
 	p.next() // consume ')'
 
-	// Parse optional return type: -> return_type
-	var returnType *ast.TypeRef
-	if p.check(token.ARROW) {
-		p.next() // consume '->'
-		if retTok, ok := p.expect(token.IDENT); ok {
-			returnType = &ast.TypeRef{Name: retTok.Literal}
-		} else {
-			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected return type after ->")
-			return nil
-		}
+	// Parse return type: -> return_type
+	if !p.check(token.ARROW) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected -> after parameters")
+		return nil
 	}
+	p.next() // consume '->'
+
+	retTok, ok := p.expect(token.IDENT)
+	if !ok {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected return type")
+		return nil
+	}
+	returnType := &ast.TypeRef{Name: retTok.Literal}
 
 	// Expect ':' and newline
 	if !p.check(token.COLON) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after parameters")
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after return type")
 		return nil
 	}
 	p.next() // consume ':'

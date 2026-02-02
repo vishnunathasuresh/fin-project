@@ -294,16 +294,12 @@ func parseCallExpr(p *Parser, callee ast.Expr) ast.Expr {
 					p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ) after named argument")
 				}
 				continue
-			} else {
-				// This is a positional argument
-				args = append(args, p.parseExpression(0))
 			}
-		} else {
-			// Not an identifier, so it's definitely a positional argument
-			args = append(args, p.parseExpression(0))
 		}
 
-		// Check for comma or end of args (positional path)
+		// Positional argument path
+		args = append(args, p.parseExpression(0))
+
 		if p.check(token.COMMA) {
 			p.next() // consume ','
 		} else if !p.check(token.RPAREN) {

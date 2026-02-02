@@ -58,11 +58,12 @@ def a() -> int:
 
 // TODO(fin-v2): parser integration should use v2 def/indent bodies; this test remains as placeholder.
 func TestParseProgram_StressDeepNesting(t *testing.T) {
-	src := `def a():
+	src := `def a() -> int:
     if true
         while true
             for i .. 3
                 x := 1
+        return 0
 `
 	l := lexer.New(src)
 	toks := CollectTokens(l)
