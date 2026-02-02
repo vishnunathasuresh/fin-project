@@ -17,6 +17,14 @@ type Parser struct {
 	reporter *diagnostics.Reporter
 }
 
+// expectTypeName accepts either IDENT or TYPENAME tokens for types.
+func (p *Parser) expectTypeName() (token.Token, bool) {
+	if p.check(token.IDENT) || p.check(token.TYPENAME) {
+		return p.next(), true
+	}
+	return token.Token{}, false
+}
+
 // New creates a parser from a token slice.
 func New(tokens []token.Token) *Parser {
 	return &Parser{tokens: tokens, pos: 0}
@@ -499,7 +507,7 @@ func (p *Parser) parseFn() ast.Statement {
 			return nil
 		}
 		p.next() // consume ':'
-		typeTok, ok := p.expect(token.IDENT)
+		typeTok, ok := p.expectTypeName()
 		if !ok {
 			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter type")
 			return nil
@@ -533,7 +541,7 @@ func (p *Parser) parseFn() ast.Statement {
 	}
 	p.next() // consume '->'
 
-	retTok, ok := p.expect(token.IDENT)
+	retTok, ok := p.expectTypeName()
 	if !ok {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected return type")
 		return nil

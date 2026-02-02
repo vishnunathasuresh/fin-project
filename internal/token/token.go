@@ -29,6 +29,7 @@ const (
 	BASH     Type = "BASH"
 	BAT      Type = "BAT"
 	PS1      Type = "PS1"
+	TYPENAME Type = "TYPENAME"
 
 	// punctuation
 	DOT Type = "."
@@ -97,9 +98,18 @@ var Keywords = map[string]Type{
 	"and":      AND,
 	"or":       OR,
 	"not":      BANG,
-	"bash":     BASH,
-	"bat":      BAT,
-	"ps1":      PS1,
+	// builtin type names map to TYPENAME
+	"int":     TYPENAME,
+	"float":   TYPENAME,
+	"bool":    TYPENAME,
+	"str":     TYPENAME,
+	"command": TYPENAME,
+	"error":   TYPENAME,
+	"list":    TYPENAME,
+	"map":     TYPENAME,
+	"bash":    BASH,
+	"bat":     BAT,
+	"ps1":     PS1,
 }
 
 func LookupIdent(ident string) Type {
