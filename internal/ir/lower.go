@@ -118,25 +118,32 @@ func (l *Lowerer) lowerFnDecl(fn *ast.FnDecl) (*Function, error) {
 
 func (l *Lowerer) lowerStmt(s ast.Statement) (Stmt, error) {
 	switch stmt := s.(type) {
-	case *ast.SetStmt:
-		// v1 set statement -> DeclStmt
+	case *ast.DeclStmt:
+		// fin-v2: DeclStmt supports tuple via Names slice. Lower first name only for now (TODO: support tuples/types).
+		if len(stmt.Names) == 0 {
+			return nil, fmt.Errorf("decl with no names at %v", stmt.Pos())
+		}
 		initExpr, err := l.lowerExpr(stmt.Value)
 		if err != nil {
 			return nil, err
 		}
 		return &DeclStmt{
-			Name: stmt.Name,
+			Name: stmt.Names[0],
 			Type: &BasicType{Kind: "any"},
 			Init: initExpr,
 		}, nil
 
 	case *ast.AssignStmt:
+		// fin-v2: AssignStmt supports tuple via Names slice. Lower first name only for now (TODO: support tuples/types).
+		if len(stmt.Names) == 0 {
+			return nil, fmt.Errorf("assign with no names at %v", stmt.Pos())
+		}
 		valueExpr, err := l.lowerExpr(stmt.Value)
 		if err != nil {
 			return nil, err
 		}
 		return &AssignStmt{
-			Name:  stmt.Name,
+			Name:  stmt.Names[0],
 			Value: valueExpr,
 		}, nil
 
@@ -157,16 +164,6 @@ func (l *Lowerer) lowerStmt(s ast.Statement) (Stmt, error) {
 
 	case *ast.ContinueStmt:
 		return &ContinueStmt{}, nil
-
-	case *ast.EchoStmt:
-		// v1 echo -> will eventually become run() call in v2
-		// For now, skip or handle specially
-		return nil, nil
-
-	case *ast.RunStmt:
-		// v1 run -> will eventually become typed run() call in v2
-		// For now, skip or handle specially
-		return nil, nil
 
 	case *ast.CallStmt:
 		// Function call as statement

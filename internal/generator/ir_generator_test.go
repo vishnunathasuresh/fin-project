@@ -7,6 +7,7 @@ import (
 )
 
 func TestIRBatchGenerator_SimpleFunction(t *testing.T) {
+	// TODO(fin-v2): Update expectations once IR lowering fully supports v2 tuples/types/run().
 	prog := &ir.Program{
 		Functions: map[string]*ir.Function{
 			"main": {
@@ -49,6 +50,7 @@ func TestIRBatchGenerator_SimpleFunction(t *testing.T) {
 }
 
 func TestIRBatchGenerator_IfStatement(t *testing.T) {
+	// TODO(fin-v2): Update when comparison lowering and assignments reflect v2 semantics.
 	prog := &ir.Program{
 		Functions: map[string]*ir.Function{
 			"main": {
@@ -96,6 +98,7 @@ func TestIRBatchGenerator_IfStatement(t *testing.T) {
 }
 
 func TestIRBatchGenerator_ForLoop(t *testing.T) {
+	// TODO(fin-v2): Update when for-range lowering is finalized for v2.
 	prog := &ir.Program{
 		Functions: map[string]*ir.Function{
 			"main": {

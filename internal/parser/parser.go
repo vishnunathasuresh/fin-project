@@ -148,7 +148,7 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.CONTINUE:
 		return p.parseContinue()
 	case token.IDENT:
-		// declaration or assignment
+		// declaration (:=) or assignment (=)
 		if next := p.peek(); next.Type == token.DECLARE {
 			return p.parseDecl()
 		}
@@ -378,12 +378,20 @@ func (p *Parser) parseFor() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier after for")
 		return nil
 	}
-	start := p.parseExpression(0)
-	if !p.check(token.DOTDOT) {
+	// Optional 'in' keyword (treated as ident token) between iterator and range.
+	if p.check(token.IDENT) && p.current().Literal == "in" {
+		p.next()
+	}
+	var start ast.Expr
+	start = p.parseExpression(0)
+
+	if _, ok := p.expect(token.DOT); !ok {
+		return nil
+	}
+	if _, ok := p.expect(token.DOT); !ok {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected .. in for range")
 		return nil
 	}
-	p.next() // consume '..'
 	end := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after for header")
@@ -504,8 +512,8 @@ func (p *Parser) parseFn() ast.Statement {
 	p.next() // consume ':'
 	p.consumeNewlineIfPresent()
 
-	// Parse function body
-	body := p.parseBlock(token.EOF)
+	// Parse function body; stop on next def or EOF
+	body := p.parseBlock(token.DEF, token.EOF)
 
 	return &ast.FnDecl{
 		Name:   nameTok.Literal,
@@ -521,6 +529,11 @@ func (p *Parser) parseBlock(until token.Type, others ...token.Type) []ast.Statem
 	var stmts []ast.Statement
 	for !p.isAtEnd() {
 		if p.check(token.NEWLINE) {
+			// Double newline ends the block (blank line separation).
+			if p.peek().Type == token.NEWLINE {
+				p.next() // consume first
+				return stmts
+			}
 			p.next()
 			continue
 		}

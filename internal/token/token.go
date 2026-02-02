@@ -25,10 +25,15 @@ const (
 	CONTINUE Type = "CONTINUE"
 	TRUE     Type = "TRUE"
 	FALSE    Type = "FALSE"
+	AND_KW   Type = "AND_KW"
+	OR_KW    Type = "OR_KW"
+	NOT_KW   Type = "NOT_KW"
+	BASH     Type = "BASH"
+	BAT      Type = "BAT"
+	PS1      Type = "PS1"
 
 	// punctuation
-	DOTDOT Type = ".."
-	DOT    Type = "."
+	DOT Type = "."
 
 	LBRACKET Type = "["
 	RBRACKET Type = "]"
@@ -42,11 +47,17 @@ const (
 	// operators
 	DECLARE Type = ":="
 	ASSIGN  Type = "="
+	EQ      Type = "=="
+	NEQ     Type = "!="
 	ARROW   Type = "->"
+	OR      Type = "||"
+	AND     Type = "&&"
 	PLUS    Type = "+"
 	MINUS   Type = "-"
 	STAR    Type = "*"
+	POWER   Type = "**"
 	SLASH   Type = "/"
+	BANG    Type = "!"
 
 	// command literal delimiters
 	CMD_START Type = "CMD_START"

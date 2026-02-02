@@ -76,13 +76,26 @@ func (l *Lexer) NextToken() token.Token {
 		return token.New(token.STRING, str, startLine, startCol)
 
 	case ch == '.':
-		if l.peekNext() == '.' {
-			l.next()
-			l.next()
-			return token.New(token.DOTDOT, "..", startLine, startCol)
-		}
 		l.next()
 		return token.New(token.DOT, ".", startLine, startCol)
+
+	case ch == '|':
+		if l.peekNext() == '|' {
+			l.next()
+			l.next()
+			return token.New(token.OR, "||", startLine, startCol)
+		}
+		l.next()
+		return token.New(token.ILLEGAL, "|", startLine, startCol)
+
+	case ch == '&':
+		if l.peekNext() == '&' {
+			l.next()
+			l.next()
+			return token.New(token.AND, "&&", startLine, startCol)
+		}
+		l.next()
+		return token.New(token.ILLEGAL, "&", startLine, startCol)
 
 	case ch == '[':
 		l.next()
@@ -143,6 +156,11 @@ func (l *Lexer) NextToken() token.Token {
 		return token.New(token.MINUS, "-", startLine, startCol)
 
 	case ch == '*':
+		if l.peekNext() == '*' {
+			l.next()
+			l.next()
+			return token.New(token.POWER, "**", startLine, startCol)
+		}
 		l.next()
 		return token.New(token.STAR, "*", startLine, startCol)
 
@@ -151,8 +169,22 @@ func (l *Lexer) NextToken() token.Token {
 		return token.New(token.SLASH, "/", startLine, startCol)
 
 	case ch == '=':
+		if l.peekNext() == '=' {
+			l.next()
+			l.next()
+			return token.New(token.EQ, "==", startLine, startCol)
+		}
 		l.next()
 		return token.New(token.ASSIGN, "=", startLine, startCol)
+
+	case ch == '!':
+		if l.peekNext() == '=' {
+			l.next()
+			l.next()
+			return token.New(token.NEQ, "!=", startLine, startCol)
+		}
+		l.next()
+		return token.New(token.BANG, "!", startLine, startCol)
 
 	case ch == '<':
 		// command literal start

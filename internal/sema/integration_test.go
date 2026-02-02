@@ -21,7 +21,7 @@ func parseProgram(t *testing.T, src string) *ast.Program {
 
 func TestIntegration_UndefinedVariable(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.EchoStmt{Value: &ast.IdentExpr{Name: "missing", P: ast.Pos{Line: 1, Column: 6}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.AssignStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
 
 	res := AnalyzeDefinitions(prog)
@@ -32,8 +32,8 @@ func TestIntegration_UndefinedVariable(t *testing.T) {
 	if !errors.As(res.Errors[0], &u) {
 		t.Fatalf("expected UndefinedVariableError, got %T", res.Errors[0])
 	}
-	if u.P.Line != 1 || u.P.Column != 6 {
-		t.Fatalf("expected position 1:6, got %d:%d", u.P.Line, u.P.Column)
+	if u.P.Line != 1 || u.P.Column != 1 {
+		t.Fatalf("expected position 1:1, got %d:%d", u.P.Line, u.P.Column)
 	}
 }
 
@@ -51,7 +51,7 @@ func TestIntegration_Assign_Undefined(t *testing.T) {
 }
 
 func TestIntegration_Assign_Defined(t *testing.T) {
-	src := "set a 1\na = 2\n"
+	src := "a := 1\na = 2\n"
 	prog := parseProgram(t, src)
 	a := New()
 	if err := a.Analyze(prog); err != nil {
@@ -76,7 +76,7 @@ func TestIntegration_DuplicateFunction(t *testing.T) {
 
 func TestIntegration_InvalidArity(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "bar", Params: []string{"x"}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "bar", Params: []ast.Param{{Name: "x", P: ast.Pos{Line: 1, Column: 10}}}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.CallStmt{Name: "bar", Args: nil, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	res := AnalyzeDefinitions(prog)
@@ -94,8 +94,8 @@ func TestIntegration_InvalidArity(t *testing.T) {
 
 func TestIntegration_ShadowingAllowedAcrossFunctions(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "a", Params: []string{"x"}, Body: []ast.Statement{&ast.EchoStmt{Value: &ast.IdentExpr{Name: "x", P: ast.Pos{Line: 2, Column: 10}}, P: ast.Pos{Line: 2, Column: 5}}}, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.FnDecl{Name: "b", Params: []string{"x"}, Body: []ast.Statement{&ast.EchoStmt{Value: &ast.IdentExpr{Name: "x", P: ast.Pos{Line: 4, Column: 10}}, P: ast.Pos{Line: 4, Column: 5}}}, P: ast.Pos{Line: 3, Column: 1}},
+		&ast.FnDecl{Name: "a", Params: []ast.Param{{Name: "x", P: ast.Pos{Line: 1, Column: 10}}}, Body: []ast.Statement{&ast.ReturnStmt{Value: &ast.IdentExpr{Name: "x", P: ast.Pos{Line: 2, Column: 10}}, P: ast.Pos{Line: 2, Column: 5}}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "b", Params: []ast.Param{{Name: "x", P: ast.Pos{Line: 3, Column: 10}}}, Body: []ast.Statement{&ast.ReturnStmt{Value: &ast.IdentExpr{Name: "x", P: ast.Pos{Line: 4, Column: 10}}, P: ast.Pos{Line: 4, Column: 5}}}, P: ast.Pos{Line: 3, Column: 1}},
 	}}
 	res := AnalyzeDefinitions(prog)
 	if len(res.Errors) != 0 {
@@ -105,7 +105,7 @@ func TestIntegration_ShadowingAllowedAcrossFunctions(t *testing.T) {
 
 func TestIntegration_ReservedNameRejected(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "if", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"if"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
 	res := AnalyzeDefinitions(prog)
 	if len(res.Errors) == 0 {
@@ -155,21 +155,21 @@ func TestIntegration_MixedLargeProgram_NoPanicAndAggregates(t *testing.T) {
 	var stmts []ast.Statement
 	for i := 0; i < 50; i++ {
 		name := fmt.Sprintf("v%d", i)
-		stmts = append(stmts, &ast.SetStmt{Name: name, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: i + 1, Column: 5}}, P: ast.Pos{Line: i + 1, Column: 1}})
+		stmts = append(stmts, &ast.DeclStmt{Names: []string{name}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: i + 1, Column: 5}}, P: ast.Pos{Line: i + 1, Column: 1}})
 	}
 	// many functions
 	for i := 0; i < 10; i++ {
 		fname := fmt.Sprintf("fn%d", i)
-		stmts = append(stmts, &ast.FnDecl{Name: fname, Params: []string{"p"}, Body: []ast.Statement{
-			&ast.EchoStmt{Value: &ast.IdentExpr{Name: "p", P: ast.Pos{Line: 200 + i, Column: 10}}, P: ast.Pos{Line: 200 + i, Column: 5}},
+		stmts = append(stmts, &ast.FnDecl{Name: fname, Params: []ast.Param{{Name: "p", P: ast.Pos{Line: 200 + i, Column: 5}}}, Body: []ast.Statement{
+			&ast.ReturnStmt{Value: &ast.IdentExpr{Name: "p", P: ast.Pos{Line: 200 + i, Column: 10}}, P: ast.Pos{Line: 200 + i, Column: 5}},
 		}, P: ast.Pos{Line: 200 + i, Column: 1}})
 	}
 	// duplicate function and bad call + undefined call
 	stmts = append(stmts,
-		&ast.FnDecl{Name: "dup", Params: []string{"a"}, Body: nil, P: ast.Pos{Line: 300, Column: 1}},
-		&ast.FnDecl{Name: "dup", Params: []string{"b"}, Body: nil, P: ast.Pos{Line: 301, Column: 1}},
-		&ast.CallStmt{Name: "dup", Args: []ast.Expr{}, P: ast.Pos{Line: 302, Column: 1}},
-		&ast.CallStmt{Name: "missingFn", Args: nil, P: ast.Pos{Line: 303, Column: 1}},
+		&ast.FnDecl{Name: "dup", Params: []ast.Param{{Name: "x", P: ast.Pos{Line: 500, Column: 10}}}, Body: nil, P: ast.Pos{Line: 500, Column: 1}},
+		&ast.FnDecl{Name: "dup", Params: []ast.Param{{Name: "x", P: ast.Pos{Line: 501, Column: 10}}}, Body: nil, P: ast.Pos{Line: 501, Column: 1}},
+		&ast.CallStmt{Name: "dup", Args: []ast.Expr{}, P: ast.Pos{Line: 502, Column: 1}},
+		&ast.CallStmt{Name: "missing", Args: nil, P: ast.Pos{Line: 503, Column: 1}},
 	)
 	prog := &ast.Program{Statements: stmts}
 	a := New()

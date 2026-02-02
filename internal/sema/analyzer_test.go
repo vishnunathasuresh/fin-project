@@ -32,13 +32,13 @@ func TestFunctionRegistry_LookupMissing(t *testing.T) {
 	}
 }
 
-func TestAnalyze_ReservedSet(t *testing.T) {
+func TestAnalyze_ReservedDecl(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "if", P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"if"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
 	errs := Analyze(prog)
 	if len(errs) == 0 {
-		t.Fatalf("expected reserved name error for set")
+		t.Fatalf("expected reserved name error for decl")
 	}
 	var r ReservedNameError
 	if !errors.As(errs[0], &r) {
@@ -62,7 +62,7 @@ func TestAnalyze_ReservedFnName(t *testing.T) {
 
 func TestAnalyze_ReservedFnParam(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "valid", Params: []string{"while"}, Body: nil, P: ast.Pos{Line: 3, Column: 5}},
+		&ast.FnDecl{Name: "valid", Params: []ast.Param{{Name: "while", P: ast.Pos{Line: 3, Column: 10}}}, Body: nil, P: ast.Pos{Line: 3, Column: 5}},
 	}}
 	errs := Analyze(prog)
 	if len(errs) == 0 {
@@ -76,46 +76,50 @@ func TestAnalyze_ReservedFnParam(t *testing.T) {
 
 func TestAnalyze_UndefinedVariable(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.EchoStmt{Value: &ast.IdentExpr{Name: "x", P: ast.Pos{Line: 1, Column: 1}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.AssignStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
-	errs := Analyze(prog)
-	if len(errs) == 0 {
+	err := New().Analyze(prog)
+	if err == nil {
 		t.Fatalf("expected undefined variable error")
 	}
 	var u UndefinedVariableError
-	if !errors.As(errs[0], &u) {
-		t.Fatalf("expected UndefinedVariableError, got %T", errs[0])
+	if !errors.As(err, &u) {
+		t.Fatalf("expected UndefinedVariableError, got %T", err)
 	}
 }
 
 func TestAnalyze_UndefinedVariable_PropertyBase(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.EchoStmt{Value: &ast.PropertyExpr{Object: &ast.IdentExpr{Name: "obj", P: ast.Pos{Line: 1, Column: 6}}, Field: "f", P: ast.Pos{Line: 1, Column: 9}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.AssignStmt{Names: []string{"y"}, Value: &ast.PropertyExpr{Object: &ast.IdentExpr{Name: "obj", P: ast.Pos{Line: 1, Column: 6}}, Field: "f", P: ast.Pos{Line: 1, Column: 9}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
-	errs := Analyze(prog)
-	if len(errs) == 0 {
+	err := New().Analyze(prog)
+	if err == nil {
 		t.Fatalf("expected undefined variable error for property base")
 	}
 	var u UndefinedVariableError
-	if !errors.As(errs[0], &u) {
-		t.Fatalf("expected UndefinedVariableError, got %T", errs[0])
+	if !errors.As(err, &u) {
+		t.Fatalf("expected UndefinedVariableError, got %T", err)
 	}
 }
 
 func TestAnalyze_SkipReservedIdent(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.EchoStmt{Value: &ast.IdentExpr{Name: "true", P: ast.Pos{Line: 1, Column: 1}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"true"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 6}}, P: ast.Pos{Line: 1, Column: 1}},
 	}}
-	errs := Analyze(prog)
-	if len(errs) != 0 {
-		t.Fatalf("expected no errors for reserved/builtin ident, got %v", errs)
+	err := New().Analyze(prog)
+	if err == nil {
+		t.Fatalf("expected reserved name error for decl")
+	}
+	var r ReservedNameError
+	if !errors.As(err, &r) {
+		t.Fatalf("expected ReservedNameError, got %T", err)
 	}
 }
 
 func TestAnalyze_DuplicateDefinition(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "a", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 10}}, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.SetStmt{Name: "a", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 10}}, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.DeclStmt{Names: []string{"a"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 10}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"a"}, Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 10}}, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	errs := Analyze(prog)
 	if len(errs) < 1 {
@@ -142,7 +146,7 @@ func TestAnalyze_CallMissingFunction(t *testing.T) {
 
 func TestAnalyze_CallArityMismatch(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "foo", Params: []string{"a"}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "foo", Params: []ast.Param{{Name: "a", P: ast.Pos{Line: 1, Column: 5}}}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.CallStmt{Name: "foo", Args: []ast.Expr{}, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	errs := Analyze(prog)
@@ -157,7 +161,7 @@ func TestAnalyze_CallArityMismatch(t *testing.T) {
 
 func TestAnalyze_CallOK(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "bar", Params: []string{"a", "b"}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "bar", Params: []ast.Param{{Name: "a", P: ast.Pos{Line: 1, Column: 5}}, {Name: "b", P: ast.Pos{Line: 1, Column: 8}}}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.CallStmt{Name: "bar", Args: []ast.Expr{&ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}, &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 8}}}, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	errs := Analyze(prog)
@@ -168,7 +172,7 @@ func TestAnalyze_CallOK(t *testing.T) {
 
 func TestAnalyze_CallMixedCorrectAndWrong(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "f", Params: []string{"a"}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "f", Params: []ast.Param{{Name: "a", P: ast.Pos{Line: 1, Column: 5}}}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.CallStmt{Name: "f", Args: []ast.Expr{&ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}}, P: ast.Pos{Line: 2, Column: 1}}, // ok
 		&ast.CallStmt{Name: "f", Args: []ast.Expr{}, P: ast.Pos{Line: 3, Column: 1}},                                                           // wrong
 	}}
@@ -185,7 +189,7 @@ func TestAnalyze_CallMixedCorrectAndWrong(t *testing.T) {
 func TestAnalyze_CallForwardReferenceArity(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
 		&ast.CallStmt{Name: "g", Args: []ast.Expr{}, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.FnDecl{Name: "g", Params: []string{}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.FnDecl{Name: "g", Params: []ast.Param{}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	errs := Analyze(prog)
 	if len(errs) != 0 {
@@ -196,7 +200,7 @@ func TestAnalyze_CallForwardReferenceArity(t *testing.T) {
 func TestAnalyze_CallUndefinedAndArityMixed(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
 		&ast.CallStmt{Name: "missing", Args: nil, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.FnDecl{Name: "h", Params: []string{"a"}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.FnDecl{Name: "h", Params: []ast.Param{{Name: "a", P: ast.Pos{Line: 2, Column: 5}}}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
 		&ast.CallStmt{Name: "h", Args: []ast.Expr{}, P: ast.Pos{Line: 3, Column: 1}},
 	}}
 	errs := Analyze(prog)
@@ -212,9 +216,9 @@ func TestAnalyze_CallUndefinedAndArityMixed(t *testing.T) {
 
 func TestAnalyze_CallZeroArgEdges(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "z", Params: []string{}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "z", Params: []ast.Param{}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.CallStmt{Name: "z", Args: []ast.Expr{&ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}}, P: ast.Pos{Line: 2, Column: 1}},
-		&ast.FnDecl{Name: "u", Params: []string{"a", "b"}, Body: nil, P: ast.Pos{Line: 3, Column: 1}},
+		&ast.FnDecl{Name: "u", Params: []ast.Param{{Name: "a", P: ast.Pos{Line: 3, Column: 5}}, {Name: "b", P: ast.Pos{Line: 3, Column: 8}}}, Body: nil, P: ast.Pos{Line: 3, Column: 1}},
 		&ast.CallStmt{Name: "u", Args: []ast.Expr{}, P: ast.Pos{Line: 4, Column: 1}},
 	}}
 	errs := Analyze(prog)
@@ -251,8 +255,8 @@ func TestAnalyzeDefinitionsWithLimit_AllowsWithinLimit(t *testing.T) {
 
 func TestAnalyzer_WrapperCollectsErrors(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.DeclStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	a := NewAnalyzer(prog, 0)
 	a.Run()
@@ -263,7 +267,7 @@ func TestAnalyzer_WrapperCollectsErrors(t *testing.T) {
 
 func TestAnalyzer_PublicAPI_NoErrorsReturnsNil(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.FnDecl{Name: "f", Params: []string{}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "f", Params: []ast.Param{}, Body: nil, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.CallStmt{Name: "f", Args: nil, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	a := New()
@@ -275,8 +279,8 @@ func TestAnalyzer_PublicAPI_NoErrorsReturnsNil(t *testing.T) {
 
 func TestAnalyzer_PublicAPI_AggregatesErrors(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.DeclStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	a := New()
 	err := a.Analyze(prog)
@@ -286,8 +290,8 @@ func TestAnalyzer_PublicAPI_AggregatesErrors(t *testing.T) {
 }
 
 func TestAnalyzeDefinitions_TracksFnScope(t *testing.T) {
-	fn := &ast.FnDecl{Name: "foo", Params: []string{"p"}, Body: []ast.Statement{
-		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+	fn := &ast.FnDecl{Name: "foo", Params: []ast.Param{{Name: "p", P: ast.Pos{Line: 1, Column: 10}}}, Body: []ast.Statement{
+		&ast.DeclStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
 	}, P: ast.Pos{Line: 1, Column: 1}}
 	prog := &ast.Program{Statements: []ast.Statement{fn}}
 	res := AnalyzeDefinitions(prog)
@@ -302,13 +306,13 @@ func TestAnalyzeDefinitions_TracksFnScope(t *testing.T) {
 		t.Fatalf("expected param p in function scope")
 	}
 	if _, found := scope.Lookup("x"); !found {
-		t.Fatalf("expected set variable x in function scope")
+		t.Fatalf("expected declared variable x in function scope")
 	}
 }
 
 func TestAnalyzeDefinitions_TracksForScope(t *testing.T) {
 	forStmt := &ast.ForStmt{Var: "i", Start: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 10}}, End: &ast.NumberLit{Value: "3", P: ast.Pos{Line: 1, Column: 15}}, Body: []ast.Statement{
-		&ast.SetStmt{Name: "j", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.DeclStmt{Names: []string{"j"}, Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
 	}, P: ast.Pos{Line: 1, Column: 1}}
 	prog := &ast.Program{Statements: []ast.Statement{forStmt}}
 	res := AnalyzeDefinitions(prog)
@@ -323,14 +327,14 @@ func TestAnalyzeDefinitions_TracksForScope(t *testing.T) {
 		t.Fatalf("expected loop var i in scope")
 	}
 	if _, found := scope.Lookup("j"); !found {
-		t.Fatalf("expected set var j in loop scope")
+		t.Fatalf("expected declared var j in loop scope")
 	}
 }
 
 func TestAnalyze_NoShadowInFnParams(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "x", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
-		&ast.FnDecl{Name: "foo", Params: []string{"x"}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
+		&ast.DeclStmt{Names: []string{"x"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.FnDecl{Name: "foo", Params: []ast.Param{{Name: "x", P: ast.Pos{Line: 2, Column: 5}}}, Body: nil, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	errs := Analyze(prog)
 	if len(errs) == 0 {
@@ -345,11 +349,11 @@ func TestAnalyze_NoShadowInFnParams(t *testing.T) {
 	}
 }
 
-func TestAnalyze_NoShadowInNestedSet(t *testing.T) {
+func TestAnalyze_NoShadowInNestedDecl(t *testing.T) {
 	prog := &ast.Program{Statements: []ast.Statement{
-		&ast.SetStmt{Name: "y", Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
+		&ast.DeclStmt{Names: []string{"y"}, Value: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 5}}, P: ast.Pos{Line: 1, Column: 1}},
 		&ast.IfStmt{Cond: &ast.BoolLit{Value: true, P: ast.Pos{Line: 2, Column: 4}}, Then: []ast.Statement{
-			&ast.SetStmt{Name: "y", Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 3, Column: 9}}, P: ast.Pos{Line: 3, Column: 1}},
+			&ast.DeclStmt{Names: []string{"y"}, Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 3, Column: 9}}, P: ast.Pos{Line: 3, Column: 1}},
 		}, P: ast.Pos{Line: 2, Column: 1}},
 	}}
 	errs := Analyze(prog)

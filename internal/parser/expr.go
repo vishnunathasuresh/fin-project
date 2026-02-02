@@ -13,8 +13,14 @@ import (
 
 // precedences maps infix token types to their binding power.
 var precedences = map[token.Type]int{
-	token.PLUS: 5, token.MINUS: 5,
-	token.STAR: 6, token.SLASH: 6,
+	// lowest to highest
+	token.OR:   1,
+	token.AND:  2,
+	token.EQ:   3,
+	token.NEQ:  3,
+	token.PLUS: 4, token.MINUS: 4,
+	token.STAR: 5, token.SLASH: 5,
+	token.POWER:    6,
 	token.DOT:      7,
 	token.LBRACKET: 7, // index has high precedence
 	token.LPAREN:   8, // function call has highest precedence
@@ -30,6 +36,7 @@ func init() {
 		token.TRUE:      parseBool,
 		token.FALSE:     parseBool,
 		token.MINUS:     parseUnary,
+		token.BANG:      parseUnary,
 		token.LPAREN:    parseGrouped,
 		token.LBRACKET:  parseList,
 		token.LBRACE:    parseMap,
@@ -70,6 +77,12 @@ func (p *Parser) parseExpression(precedence int) ast.Expr {
 func (p *Parser) infixFn(t token.Type) infixParseFn {
 	switch t {
 	case token.PLUS, token.MINUS, token.STAR, token.SLASH:
+		return parseBinary
+	case token.POWER:
+		return parseBinary
+	case token.EQ, token.NEQ:
+		return parseBinary
+	case token.OR, token.AND:
 		return parseBinary
 	case token.LBRACKET:
 		return parseIndex
@@ -119,7 +132,7 @@ func parseExists(p *Parser) ast.Expr {
 
 func parseUnary(p *Parser) ast.Expr {
 	tok := p.next()
-	const prefixPrecedence = 7 // higher than multiplicative to bind unary tightly
+	const prefixPrecedence = 9 // higher than power and multiplicative to bind unary tightly
 	right := p.parseExpression(prefixPrecedence)
 	return &ast.UnaryExpr{Op: tok.Literal, Right: right, P: ast.Pos{Line: tok.Line, Column: tok.Column}}
 }
@@ -200,7 +213,12 @@ func parseBinary(p *Parser, left ast.Expr) ast.Expr {
 	opTok := p.current()
 	opPrec := p.currentPrecedence()
 	p.next() // consume operator
-	right := p.parseExpression(opPrec)
+	// Exponentiation is right-associative; other operators are left-associative.
+	rightPrec := opPrec
+	if opTok.Type == token.POWER {
+		rightPrec = opPrec - 1
+	}
+	right := p.parseExpression(rightPrec)
 	return &ast.BinaryExpr{Left: left, Op: opTok.Literal, Right: right, P: ast.Pos{Line: opTok.Line, Column: opTok.Column}}
 }
 

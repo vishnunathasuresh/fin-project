@@ -139,22 +139,24 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 		return
 	}
 	switch s := stmt.(type) {
-	case *ast.SetStmt:
-		if err := ValidateIdentifier(s.Name, s.P); err != nil {
-			res.Errors = append(res.Errors, err)
-		}
-		if err := scope.Define(s.Name, s.P); err != nil {
-			res.Errors = append(res.Errors, err)
+	case *ast.DeclStmt:
+		for _, name := range s.Names {
+			if err := ValidateIdentifier(name, s.P); err != nil {
+				res.Errors = append(res.Errors, err)
+			}
+			if err := scope.Define(name, s.P); err != nil {
+				res.Errors = append(res.Errors, err)
+			}
 		}
 		analyzeExpr(s.Value, scope, res, depth+1, limit)
 	case *ast.FnDecl:
 		// Name already validated/registered in pass 1; still validate params and body.
 		fnScope := NewFunctionScope(scope)
 		for _, param := range s.Params {
-			if err := ValidateIdentifier(param, s.P); err != nil {
+			if err := ValidateIdentifier(param.Name, param.P); err != nil {
 				res.Errors = append(res.Errors, err)
 			}
-			if err := fnScope.Define(param, s.P); err != nil {
+			if err := fnScope.Define(param.Name, param.P); err != nil {
 				res.Errors = append(res.Errors, err)
 			}
 		}
@@ -205,14 +207,12 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 			analyzeExpr(arg, scope, res, depth+1, limit)
 		}
 	case *ast.AssignStmt:
-		if _, ok := scope.Lookup(s.Name); !ok {
-			res.Errors = append(res.Errors, UndefinedVariableError{Name: s.Name, P: s.P})
+		for _, name := range s.Names {
+			if _, ok := scope.Lookup(name); !ok {
+				res.Errors = append(res.Errors, UndefinedVariableError{Name: name, P: s.P})
+			}
 		}
 		analyzeExpr(s.Value, scope, res, depth+1, limit)
-	case *ast.EchoStmt:
-		analyzeExpr(s.Value, scope, res, depth+1, limit)
-	case *ast.RunStmt:
-		analyzeExpr(s.Command, scope, res, depth+1, limit)
 	case *ast.ReturnStmt:
 		if !scope.IsFunctionScope() {
 			res.Errors = append(res.Errors, ReturnOutsideFunctionError{P: s.P})

@@ -80,7 +80,7 @@ end
 }
 
 func TestParseProgram_StressLongExpression(t *testing.T) {
-	src := `set x 1 + 2 * 3 == 7 && true || false
+	src := `x := 1 + 2 * 3 == 7 && true || false
 `
 	l := lexer.New(src)
 	toks := CollectTokens(l)
@@ -95,10 +95,10 @@ func TestParseProgram_StressLongExpression(t *testing.T) {
 }
 
 func TestParseProgram_StressRecovery(t *testing.T) {
-	src := `set x
-echo
+	src := `x :=
+foo
 fn test
-    set a 1
+    y = 1
 
 `
 	l := lexer.New(src)

@@ -91,6 +91,30 @@ func TestParse_AssignStmt_Simple(t *testing.T) {
 	}
 }
 
+func TestParse_TupleDeclVsTupleAssign(t *testing.T) {
+	src := "(a, b) := foo()\n(a, b) = bar()\n"
+	prog := parseProgram(t, src)
+	if len(prog.Statements) != 2 {
+		t.Fatalf("got %d statements, want 2", len(prog.Statements))
+	}
+
+	if decl, ok := prog.Statements[0].(*ast.DeclStmt); !ok {
+		t.Fatalf("stmt0 not DeclStmt: %T", prog.Statements[0])
+	} else {
+		if want := []string{"a", "b"}; len(decl.Names) != 2 || decl.Names[0] != want[0] || decl.Names[1] != want[1] {
+			t.Fatalf("decl names = %v, want %v", decl.Names, want)
+		}
+	}
+
+	if assign, ok := prog.Statements[1].(*ast.AssignStmt); !ok {
+		t.Fatalf("stmt1 not AssignStmt: %T", prog.Statements[1])
+	} else {
+		if want := []string{"a", "b"}; len(assign.Names) != 2 || assign.Names[0] != want[0] || assign.Names[1] != want[1] {
+			t.Fatalf("assign names = %v, want %v", assign.Names, want)
+		}
+	}
+}
+
 // TestParse_DeclVsAssign tests the critical distinction between := and =
 func TestParse_DeclVsAssign(t *testing.T) {
 	src := "x := 1\nx = 2\n"
