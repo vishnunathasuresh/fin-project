@@ -44,6 +44,26 @@ func TestParseProgram_TopLevelLoop(t *testing.T) {
 	}
 }
 
+func TestParseProgram_StressDeepNesting_Short(t *testing.T) {
+	// TODO(fin-v2): extend once nested run()/call lowering is supported.
+	src := `def a():
+	    if true
+	        while true
+	            for i .. 3
+	                x := 1
+`
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	prog := p.ParseProgram()
+	if len(p.Errors()) != 0 {
+		t.Fatalf("unexpected errors: %v", p.Errors())
+	}
+	if len(prog.Statements) != 1 {
+		t.Fatalf("stmt count = %d, want 1", len(prog.Statements))
+	}
+}
+
 func TestParseProgram_StopsOnlyOnEOF(t *testing.T) {
 	src := "foo\n# c\nbar\n"
 	l := lexer.New(src)

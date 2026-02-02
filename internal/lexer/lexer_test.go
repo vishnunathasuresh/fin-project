@@ -51,3 +51,15 @@ func TestLexCommandLiteral(t *testing.T) {
 		t.Fatalf("cmd text literal = %q", toks[1].Literal)
 	}
 }
+
+func TestLexLogicalKeywordAliases(t *testing.T) {
+	l := New("and or not\n")
+	toks := collectTokens(l)
+	assertTokenSeq(t, toks, []token.Type{token.AND, token.OR, token.BANG, token.NEWLINE, token.EOF})
+}
+
+func TestLexPlatformKeywords(t *testing.T) {
+	l := New("bash bat ps1\n")
+	toks := collectTokens(l)
+	assertTokenSeq(t, toks, []token.Type{token.BASH, token.BAT, token.PS1, token.NEWLINE, token.EOF})
+}

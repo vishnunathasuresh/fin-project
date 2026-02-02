@@ -382,15 +382,22 @@ func (p *Parser) parseFor() ast.Statement {
 	if p.check(token.IDENT) && p.current().Literal == "in" {
 		p.next()
 	}
-	var start ast.Expr
-	start = p.parseExpression(0)
 
-	if _, ok := p.expect(token.DOT); !ok {
-		return nil
-	}
-	if _, ok := p.expect(token.DOT); !ok {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected .. in for range")
-		return nil
+	var start ast.Expr
+	// fin-v2: for-range uses two DOT tokens; allow implicit start when header begins with "..".
+	if p.check(token.DOT) && p.peek().Type == token.DOT {
+		start = &ast.NumberLit{Value: "0", P: ast.Pos{Line: iterTok.Line, Column: iterTok.Column}}
+		p.next() // consume first .
+		p.next() // consume second .
+	} else {
+		start = p.parseExpression(0)
+		if _, ok := p.expect(token.DOT); !ok {
+			return nil
+		}
+		if _, ok := p.expect(token.DOT); !ok {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected .. in for range")
+			return nil
+		}
 	}
 	end := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
@@ -449,29 +456,27 @@ func (p *Parser) parseFn() ast.Statement {
 
 	params := []ast.Param{}
 	for !p.check(token.RPAREN) && !p.isAtEnd() {
-		// Parse parameter: name: type
+		// Parse parameter: name: type (type optional for now)
 		paramTok, ok := p.expect(token.IDENT)
 		if !ok {
 			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter name")
 			return nil
 		}
 
-		if !p.check(token.COLON) {
-			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after parameter name")
-			return nil
-		}
-		p.next() // consume ':'
-
-		// Parse parameter type
-		typeTok, ok := p.expect(token.IDENT)
-		if !ok {
-			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter type")
-			return nil
+		var typ *ast.TypeRef
+		if p.check(token.COLON) {
+			p.next() // consume ':'
+			typeTok, ok := p.expect(token.IDENT)
+			if !ok {
+				p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected parameter type")
+				return nil
+			}
+			typ = &ast.TypeRef{Name: typeTok.Literal}
 		}
 
 		params = append(params, ast.Param{
 			Name: paramTok.Literal,
-			Type: &ast.TypeRef{Name: typeTok.Literal},
+			Type: typ, // TODO(fin-v2): enforce/parse explicit types when type checker is ready
 			P:    ast.Pos{Line: paramTok.Line, Column: paramTok.Column},
 		})
 
@@ -490,23 +495,21 @@ func (p *Parser) parseFn() ast.Statement {
 	}
 	p.next() // consume ')'
 
-	// Parse return type: -> return_type
-	if !p.check(token.ARROW) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected -> after parameters")
-		return nil
+	// Parse optional return type: -> return_type
+	var returnType *ast.TypeRef
+	if p.check(token.ARROW) {
+		p.next() // consume '->'
+		if retTok, ok := p.expect(token.IDENT); ok {
+			returnType = &ast.TypeRef{Name: retTok.Literal}
+		} else {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected return type after ->")
+			return nil
+		}
 	}
-	p.next() // consume '->'
-
-	returnTok, ok := p.expect(token.IDENT)
-	if !ok {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected return type")
-		return nil
-	}
-	returnType := &ast.TypeRef{Name: returnTok.Literal}
 
 	// Expect ':' and newline
 	if !p.check(token.COLON) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after return type")
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after parameters")
 		return nil
 	}
 	p.next() // consume ':'

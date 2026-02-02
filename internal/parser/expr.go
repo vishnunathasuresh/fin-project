@@ -285,6 +285,15 @@ func parseCallExpr(p *Parser, callee ast.Expr) ast.Expr {
 					Value: val,
 					P:     ast.Pos{Line: nameTok.Line, Column: nameTok.Column},
 				})
+				// After a named argument, require comma or closing paren.
+				if p.check(token.COMMA) {
+					p.next()
+					continue
+				}
+				if !p.check(token.RPAREN) {
+					p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected , or ) after named argument")
+				}
+				continue
 			} else {
 				// This is a positional argument
 				args = append(args, p.parseExpression(0))
@@ -294,7 +303,7 @@ func parseCallExpr(p *Parser, callee ast.Expr) ast.Expr {
 			args = append(args, p.parseExpression(0))
 		}
 
-		// Check for comma or end of args
+		// Check for comma or end of args (positional path)
 		if p.check(token.COMMA) {
 			p.next() // consume ','
 		} else if !p.check(token.RPAREN) {

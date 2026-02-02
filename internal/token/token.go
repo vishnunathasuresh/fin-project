@@ -25,9 +25,6 @@ const (
 	CONTINUE Type = "CONTINUE"
 	TRUE     Type = "TRUE"
 	FALSE    Type = "FALSE"
-	AND_KW   Type = "AND_KW"
-	OR_KW    Type = "OR_KW"
-	NOT_KW   Type = "NOT_KW"
 	BASH     Type = "BASH"
 	BAT      Type = "BAT"
 	PS1      Type = "PS1"
@@ -95,6 +92,12 @@ var Keywords = map[string]Type{
 	"continue": CONTINUE,
 	"true":     TRUE,
 	"false":    FALSE,
+	"and":      AND,
+	"or":       OR,
+	"not":      BANG,
+	"bash":     BASH,
+	"bat":      BAT,
+	"ps1":      PS1,
 }
 
 func LookupIdent(ident string) Type {
