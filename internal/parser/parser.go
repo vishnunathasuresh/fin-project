@@ -86,6 +86,16 @@ func (p *Parser) check(t token.Type) bool {
 	return p.current().Type == t
 }
 
+// checkAny reports whether the current token matches any of the given types.
+func (p *Parser) checkAny(types ...token.Type) bool {
+	for _, t := range types {
+		if p.check(t) {
+			return true
+		}
+	}
+	return false
+}
+
 // expect ensures the current token matches the given type, consuming it on success.
 // Returns (token, true) on success, or (zero, false) on failure without advancing.
 func (p *Parser) expect(t token.Type) (token.Token, bool) {
@@ -112,7 +122,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 	prog := &ast.Program{P: ast.Pos{Line: 1, Column: 1}}
 
 	for !p.isAtEnd() {
-		if p.check(token.NEWLINE) {
+		if p.check(token.NEWLINE) || p.check(token.INDENT) || p.check(token.DEDENT) {
 			p.next()
 			continue
 		}
@@ -364,18 +374,51 @@ func (p *Parser) parseCall() ast.Statement {
 func (p *Parser) parseIf() ast.Statement {
 	ifTok := p.next() // consume 'if'
 	cond := p.parseExpression(0)
+	if !p.check(token.COLON) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after if condition")
+		return nil
+	}
+	p.next() // consume ':'
 	if !p.check(token.NEWLINE) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after if condition")
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after if header")
 	}
 	p.consumeNewlineIfPresent()
-	thenBlock := p.parseBlock(token.ELSE, token.ELIF, token.EOF)
+	if !p.check(token.INDENT) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for if body")
+		return nil
+	}
+	p.next() // consume INDENT
+	thenBlock := p.parseBlock(token.DEDENT)
+	if p.check(token.DEDENT) {
+		p.next() // consume DEDENT
+	} else if !p.check(token.EOF) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected dedent after if body")
+	}
 	var elseBlock []ast.Statement
 	if p.check(token.ELIF) {
 		elseBlock = []ast.Statement{p.parseElifChain()}
 	} else if p.check(token.ELSE) {
 		p.next()
+		if !p.check(token.COLON) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after else")
+			return nil
+		}
+		p.next()
+		if !p.check(token.NEWLINE) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after else header")
+		}
 		p.consumeNewlineIfPresent()
-		elseBlock = p.parseBlock(token.EOF)
+		if !p.check(token.INDENT) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for else body")
+			return nil
+		}
+		p.next() // consume INDENT
+		elseBlock = p.parseBlock(token.DEDENT)
+		if p.check(token.DEDENT) {
+			p.next()
+		} else if !p.check(token.EOF) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected dedent after else body")
+		}
 	}
 	p.consumeNewlineIfPresent()
 	return &ast.IfStmt{Cond: cond, Then: thenBlock, Else: elseBlock, P: ast.Pos{Line: ifTok.Line, Column: ifTok.Column}}
@@ -385,18 +428,49 @@ func (p *Parser) parseIf() ast.Statement {
 func (p *Parser) parseElifChain() ast.Statement {
 	elifTok := p.next() // consume 'elif'
 	cond := p.parseExpression(0)
+	if !p.check(token.COLON) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after elif condition")
+		return nil
+	}
+	p.next()
 	if !p.check(token.NEWLINE) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after elif condition")
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after elif header")
 	}
 	p.consumeNewlineIfPresent()
-	thenBlock := p.parseBlock(token.ELSE, token.ELIF, token.EOF)
+	if !p.check(token.INDENT) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for elif body")
+		return nil
+	}
+	p.next()
+	thenBlock := p.parseBlock(token.DEDENT)
+	if p.check(token.DEDENT) {
+		p.next()
+	}
 	var elseBlock []ast.Statement
 	if p.check(token.ELIF) {
 		elseBlock = []ast.Statement{p.parseElifChain()}
 	} else if p.check(token.ELSE) {
 		p.next()
+		if !p.check(token.COLON) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after else")
+			return nil
+		}
+		p.next()
+		if !p.check(token.NEWLINE) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after else header")
+		}
 		p.consumeNewlineIfPresent()
-		elseBlock = p.parseBlock(token.EOF)
+		if !p.check(token.INDENT) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for else body")
+			return nil
+		}
+		p.next()
+		elseBlock = p.parseBlock(token.DEDENT)
+		if p.check(token.DEDENT) {
+			p.next()
+		} else if !p.check(token.EOF) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected dedent after else body")
+		}
 	}
 	p.consumeNewlineIfPresent()
 	return &ast.IfStmt{Cond: cond, Then: thenBlock, Else: elseBlock, P: ast.Pos{Line: elifTok.Line, Column: elifTok.Column}}
@@ -431,17 +505,47 @@ func (p *Parser) parseFor() ast.Statement {
 		}
 	}
 	end := p.parseExpression(0)
+	if !p.check(token.COLON) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after for header")
+		return nil
+	}
+	p.next()
 	if !p.check(token.NEWLINE) {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after for header")
 	}
 	p.consumeNewlineIfPresent()
-	body := p.parseBlock(token.ELSE, token.EOF)
-
+	if !p.check(token.INDENT) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for for body")
+		return nil
+	}
+	p.next()
+	body := p.parseBlock(token.DEDENT)
+	if p.check(token.DEDENT) {
+		p.next()
+	}
 	var elseBlock []ast.Statement
 	if p.check(token.ELSE) {
 		p.next()
+		if !p.check(token.COLON) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after else")
+			return nil
+		}
+		p.next()
+		if !p.check(token.NEWLINE) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after else header")
+		}
 		p.consumeNewlineIfPresent()
-		elseBlock = p.parseBlock(token.EOF)
+		if !p.check(token.INDENT) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for else body")
+			return nil
+		}
+		p.next()
+		elseBlock = p.parseBlock(token.DEDENT)
+		if p.check(token.DEDENT) {
+			p.next()
+		} else if !p.check(token.EOF) {
+			p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected dedent after else body")
+		}
 	}
 
 	p.consumeNewlineIfPresent()
@@ -451,12 +555,28 @@ func (p *Parser) parseFor() ast.Statement {
 func (p *Parser) parseWhile() ast.Statement {
 	whileTok := p.next() // consume 'while'
 	cond := p.parseExpression(0)
+	if !p.check(token.COLON) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected : after while condition")
+		return nil
+	}
+	p.next()
 	if !p.check(token.NEWLINE) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after while condition")
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after while header")
 	}
 	p.consumeNewlineIfPresent()
-	body := p.parseBlock(token.EOF)
+	if !p.check(token.INDENT) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for while body")
+		return nil
+	}
+	p.next()
+	body := p.parseBlock(token.DEDENT)
+	if p.check(token.DEDENT) {
+		p.next()
+	} else if !p.check(token.EOF) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected dedent after while body")
+	}
 	p.consumeNewlineIfPresent()
+
 	return &ast.WhileStmt{Cond: cond, Body: body, P: ast.Pos{Line: whileTok.Line, Column: whileTok.Column}}
 }
 
@@ -554,10 +674,21 @@ func (p *Parser) parseFn() ast.Statement {
 		return nil
 	}
 	p.next() // consume ':'
+	if !p.check(token.NEWLINE) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after function header")
+	}
 	p.consumeNewlineIfPresent()
+	if !p.check(token.INDENT) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected indent for function body")
+		return nil
+	}
+	p.next() // consume INDENT
 
-	// Parse function body; stop on next def or EOF
-	body := p.parseBlock(token.DEF, token.EOF)
+	// Parse function body; stop on DEDENT
+	body := p.parseBlock(token.DEDENT)
+	if p.check(token.DEDENT) {
+		p.next()
+	}
 
 	return &ast.FnDecl{
 		Name:   nameTok.Literal,
@@ -573,18 +704,11 @@ func (p *Parser) parseBlock(until token.Type, others ...token.Type) []ast.Statem
 	var stmts []ast.Statement
 	for !p.isAtEnd() {
 		if p.check(token.NEWLINE) {
-			// Double newline ends the block (blank line separation).
-			if p.peek().Type == token.NEWLINE {
-				p.next() // consume first
-				return stmts
-			}
 			p.next()
 			continue
 		}
-		for _, term := range terminators {
-			if p.check(term) {
-				return stmts
-			}
+		if p.checkAny(terminators...) {
+			return stmts
 		}
 		s := p.parseStatement()
 		if s != nil {

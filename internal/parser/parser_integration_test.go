@@ -14,16 +14,17 @@ def greet(name: str) -> str:
     return msg
 
 nums := [1, 2, 3]
-for i .. 3
+for i .. 3:
     x := i + 1
 
-while true
+while true:
     break
 
 def a() -> int:
-    if true
+    if true:
         y := 10
     return y
+
 `
 
 	l := lexer.New(src)
@@ -59,11 +60,12 @@ def a() -> int:
 // TODO(fin-v2): parser integration should use v2 def/indent bodies; this test remains as placeholder.
 func TestParseProgram_StressDeepNesting(t *testing.T) {
 	src := `def a() -> int:
-    if true
-        while true
-            for i .. 3
+    if true:
+        while true:
+            for i .. 3:
                 x := 1
         return 0
+
 `
 	l := lexer.New(src)
 	toks := CollectTokens(l)
@@ -113,10 +115,10 @@ fn test
 
 func TestParseProgram_Snapshot(t *testing.T) {
 	src := "x := 1\n" +
-		"if true\n" +
-		"  y := x + 1\n" +
-		"else\n" +
-		"  y := x - 1\n"
+		"if true:\n" +
+		"    y := x + 1\n" +
+		"else:\n" +
+		"    y := x - 1\n"
 	l := lexer.New(src)
 	toks := CollectTokens(l)
 	p := New(toks)
@@ -143,10 +145,10 @@ func contains(s, substr string) bool {
 
 func TestParseProgram_RecoveryThroughBadLine(t *testing.T) {
 	src := `x := 1
-if true
-  y := 2
-else
-  z := 3
+if true:
+    y := 2
+else:
+    z := 3
 
 foo
 `

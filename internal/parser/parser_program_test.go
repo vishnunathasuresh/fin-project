@@ -46,11 +46,12 @@ func TestParseProgram_TopLevelLoop(t *testing.T) {
 
 func TestParseProgram_StressDeepNesting_Short(t *testing.T) {
 	// TODO(fin-v2): extend once nested run()/call lowering is supported.
-	src := `def a():
-	    if true
-	        while true
-	            for i .. 3
-	                x := 1
+	src := `def a() -> int:
+    if true:
+        while true:
+            for i .. 3:
+                x := 1
+        return 0
 `
 	l := lexer.New(src)
 	toks := CollectTokens(l)
@@ -100,7 +101,7 @@ func TestParseProgram_StopsOnlyOnEOF(t *testing.T) {
 }
 
 func TestParseProgram_ErrorRecovery_MissingEnd(t *testing.T) {
-	src := "if true\n  x = 1\n"
+	src := "if true\n    x = 1\n"
 	l := lexer.New(src)
 	toks := CollectTokens(l)
 	p := New(toks)

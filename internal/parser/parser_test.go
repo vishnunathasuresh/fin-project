@@ -143,9 +143,9 @@ func TestParseProgram_FinV2Statements(t *testing.T) {
 		"x := 1\n" +
 		"y = x\n" +
 		"call 1 2\n" +
-		"if true\n  y = y + 1\nelse\n  y = y + 2\n\n" +
-		"for i .. 3\n  y = y + i\n\n" +
-		"while y\n  break\n\n" +
+		"if true:\n    y = y + 1\nelse:\n    y = y + 2\n\n" +
+		"for i .. 3:\n    y = y + i\n\n" +
+		"while y:\n    break\n\n" +
 		"return y\n" +
 		"continue\n"
 
@@ -154,7 +154,7 @@ func TestParseProgram_FinV2Statements(t *testing.T) {
 	p := New(toks)
 	prog := p.ParseProgram()
 
-	if len(prog.Statements) != 7 {
+	if len(prog.Statements) != 8 {
 		t.Fatalf("got %d stmts", len(prog.Statements))
 	}
 	if _, ok := prog.Statements[0].(*ast.DeclStmt); !ok {

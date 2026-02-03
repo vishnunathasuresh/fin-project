@@ -16,7 +16,7 @@ func parseProgram(t *testing.T, src string) *ast.Program {
 }
 
 func TestParse_ForElse(t *testing.T) {
-	src := "for i .. 3\n  x := i\nelse\n  y := 0\n"
+	src := "for i .. 3:\n    x := i\nelse:\n    y := 0\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -44,7 +44,7 @@ func parseProgramWithParser(t *testing.T, src string) (*ast.Program, *Parser) {
 // ---- Declaration vs Assignment Tests ----
 
 func TestParse_IfElifElse(t *testing.T) {
-	src := "if a\n  x := 1\nelif b\n  x := 2\nelse\n  x := 3\n"
+	src := "if a:\n    x := 1\nelif b:\n    x := 2\nelse:\n    x := 3\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -280,7 +280,7 @@ func TestParse_Return(t *testing.T) {
 
 // TestParse_IfElse tests if/else control flow
 func TestParse_IfElse(t *testing.T) {
-	src := "if true\n  x := 1\nelse\n  x := 2\n"
+	src := "if true:\n    x := 1\nelse:\n    x := 2\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -296,7 +296,7 @@ func TestParse_IfElse(t *testing.T) {
 
 // TestParse_For tests for loop
 func TestParse_For(t *testing.T) {
-	src := "for i .. 3\n  x = x + 1\n"
+	src := "for i .. 3:\n    x = x + 1\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -312,7 +312,7 @@ func TestParse_For(t *testing.T) {
 
 // TestParse_While tests while loop
 func TestParse_While(t *testing.T) {
-	src := "while true\n  x = x + 1\n"
+	src := "while true:\n    x = x + 1\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -324,7 +324,7 @@ func TestParse_While(t *testing.T) {
 
 // TestParse_While_Nested tests nested while loops
 func TestParse_While_Nested(t *testing.T) {
-	src := "while true\n  while false\n    x = 1\n"
+	src := "while true:\n    while false:\n        x = 1\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -343,7 +343,7 @@ func TestParse_While_Nested(t *testing.T) {
 
 // TestParse_BreakAndContinue tests break and continue
 func TestParse_BreakAndContinue(t *testing.T) {
-	src := "while true\n  break\n  continue\n"
+	src := "while true:\n    break\n    continue\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -367,7 +367,7 @@ func TestParse_BreakAndContinue(t *testing.T) {
 
 // TestParse_FnDecl_Simple tests: def add() -> int:
 func TestParse_FnDecl_Simple(t *testing.T) {
-	src := "def add() -> int:\n  return 0\n"
+	src := "def add() -> int:\n    return 0\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -389,7 +389,7 @@ func TestParse_FnDecl_Simple(t *testing.T) {
 
 // TestParse_FnDecl_SingleParam tests: def greet(name: str) -> str:
 func TestParse_FnDecl_SingleParam(t *testing.T) {
-	src := "def greet(name: str) -> str:\n  return name\n"
+	src := "def greet(name: str) -> str:\n    return name\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -417,7 +417,7 @@ func TestParse_FnDecl_SingleParam(t *testing.T) {
 
 // TestParse_FnDecl_MultipleParams tests: def add(a: int, b: int) -> int:
 func TestParse_FnDecl_MultipleParams(t *testing.T) {
-	src := "def add(a: int, b: int) -> int:\n  return a + b\n"
+	src := "def add(a: int, b: int) -> int:\n    return a + b\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -445,7 +445,7 @@ func TestParse_FnDecl_MultipleParams(t *testing.T) {
 
 // TestParse_FnDecl_MixedParamTypes tests: def process(name: str, count: int) -> bool:
 func TestParse_FnDecl_MixedParamTypes(t *testing.T) {
-	src := "def process(name: str, count: int) -> bool:\n  return true\n"
+	src := "def process(name: str, count: int) -> bool:\n    return true\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -470,7 +470,7 @@ func TestParse_FnDecl_MixedParamTypes(t *testing.T) {
 
 // TestParse_FnDecl_WithBody tests function with multiple statements
 func TestParse_FnDecl_WithBody(t *testing.T) {
-	src := "def add(a: int, b: int) -> int:\n  x := a + b\n  return x\n"
+	src := "def add(a: int, b: int) -> int:\n    x := a + b\n    return x\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 1 {
 		t.Fatalf("got %d statements, want 1", len(prog.Statements))
@@ -492,7 +492,7 @@ func TestParse_FnDecl_WithBody(t *testing.T) {
 
 // TestParse_FnDecl_Negative_MissingParentheses tests: def add a: int -> int:
 func TestParse_FnDecl_Negative_MissingParentheses(t *testing.T) {
-	src := "def add a: int -> int:\n  return 0\n"
+	src := "def add a: int -> int:\n    return 0\n"
 	_, p := parseProgramWithParser(t, src)
 	if len(p.Errors()) == 0 {
 		t.Fatalf("expected errors for missing parentheses, got none")
@@ -501,7 +501,7 @@ func TestParse_FnDecl_Negative_MissingParentheses(t *testing.T) {
 
 // TestParse_FnDecl_Negative_MissingParamType tests: def add(a, b) -> int:
 func TestParse_FnDecl_Negative_MissingParamType(t *testing.T) {
-	src := "def add(a, b) -> int:\n  return 0\n"
+	src := "def add(a, b) -> int:\n    return 0\n"
 	_, p := parseProgramWithParser(t, src)
 	if len(p.Errors()) == 0 {
 		t.Fatalf("expected errors for missing parameter type, got none")
@@ -510,7 +510,7 @@ func TestParse_FnDecl_Negative_MissingParamType(t *testing.T) {
 
 // TestParse_FnDecl_Negative_MissingReturnType tests: def add(a: int, b: int):
 func TestParse_FnDecl_Negative_MissingReturnType(t *testing.T) {
-	src := "def add(a: int, b: int):\n  return 0\n"
+	src := "def add(a: int, b: int):\n    return 0\n"
 	_, p := parseProgramWithParser(t, src)
 	if len(p.Errors()) == 0 {
 		t.Fatalf("expected errors for missing return type, got none")
@@ -519,7 +519,7 @@ func TestParse_FnDecl_Negative_MissingReturnType(t *testing.T) {
 
 // TestParse_FnDecl_Negative_MissingColon tests: def add(a: int) -> int\n
 func TestParse_FnDecl_Negative_MissingColon(t *testing.T) {
-	src := "def add(a: int) -> int\n  return 0\n"
+	src := "def add(a: int) -> int\n    return 0\n"
 	_, p := parseProgramWithParser(t, src)
 	if len(p.Errors()) == 0 {
 		t.Fatalf("expected errors for missing colon after return type, got none")
@@ -528,7 +528,7 @@ func TestParse_FnDecl_Negative_MissingColon(t *testing.T) {
 
 // TestParse_FnDecl_Multiple tests multiple function declarations
 func TestParse_FnDecl_Multiple(t *testing.T) {
-	src := "def add(a: int, b: int) -> int:\n  return a + b\n\ndef sub(a: int, b: int) -> int:\n  return a - b\n"
+	src := "def add(a: int, b: int) -> int:\n    return a + b\n\ndef sub(a: int, b: int) -> int:\n    return a - b\n"
 	prog := parseProgram(t, src)
 	if len(prog.Statements) != 2 {
 		t.Fatalf("got %d statements, want 2", len(prog.Statements))

@@ -12,18 +12,80 @@ type Lexer struct {
 	line  int
 	col   int
 	inCmd bool
+
+	indentStack []int         // stack of indent widths; starts with 0
+	pending     []token.Token // buffered tokens (INDENT/DEDENT/EOF)
+	atLineStart bool          // true if next token is at start of line
+}
+
+// readIndentWidth reads spaces/tabs at line start and returns the indent width (tab=4 spaces).
+// Stops at first non-space/tab or newline. Returns ok=false if an unexpected character is seen.
+func (l *Lexer) readIndentWidth() (int, bool) {
+	width := 0
+	for {
+		ch := l.peek()
+		switch ch {
+		case ' ':
+			l.next()
+			width++
+		case '\t':
+			l.next()
+			width += 4
+		case '\n', 0:
+			return width, true
+		default:
+			return width, true
+		}
+	}
 }
 
 func New(input string) *Lexer {
 	return &Lexer{
-		input: []rune(input),
-		pos:   0,
-		line:  1,
-		col:   1,
+		input:       []rune(input),
+		pos:         0,
+		line:        1,
+		col:         1,
+		indentStack: []int{0},
+		pending:     nil,
+		atLineStart: true,
 	}
 }
 
 func (l *Lexer) NextToken() token.Token {
+	// Flush any pending tokens first (e.g., INDENT/DEDENT/EOF)
+	if len(l.pending) > 0 {
+		tok := l.pending[0]
+		l.pending = l.pending[1:]
+		return tok
+	}
+
+	// Handle indentation at the start of a line (outside command literals)
+	if !l.inCmd && l.atLineStart {
+		l.atLineStart = false
+		indentWidth, ok := l.readIndentWidth()
+		if !ok {
+			return token.New(token.ILLEGAL, "invalid indentation", l.line, l.col)
+		}
+		prev := l.indentStack[len(l.indentStack)-1]
+		switch {
+		case indentWidth > prev:
+			l.indentStack = append(l.indentStack, indentWidth)
+			l.pending = append(l.pending, token.New(token.INDENT, "", l.line, l.col))
+			return l.NextToken()
+		case indentWidth < prev:
+			for len(l.indentStack) > 0 && indentWidth < l.indentStack[len(l.indentStack)-1] {
+				l.indentStack = l.indentStack[:len(l.indentStack)-1]
+				l.pending = append(l.pending, token.New(token.DEDENT, "", l.line, l.col))
+			}
+			if len(l.indentStack) == 0 || l.indentStack[len(l.indentStack)-1] != indentWidth {
+				return token.New(token.ILLEGAL, "inconsistent indentation", l.line, l.col)
+			}
+			if len(l.pending) > 0 {
+				return l.NextToken()
+			}
+		}
+	}
+
 	if !l.inCmd {
 		l.skipWhitespaceExceptNewline()
 	}
@@ -50,10 +112,16 @@ func (l *Lexer) NextToken() token.Token {
 
 	switch {
 	case ch == 0:
+		// Emit any remaining dedents before EOF
+		if len(l.indentStack) > 1 {
+			l.indentStack = l.indentStack[:len(l.indentStack)-1]
+			return token.New(token.DEDENT, "", startLine, startCol)
+		}
 		return token.New(token.EOF, "", startLine, startCol)
 
 	case ch == '\n':
 		l.next()
+		l.atLineStart = true
 		return token.New(token.NEWLINE, "\n", startLine, startCol)
 
 	case ch == '#':

@@ -16,6 +16,45 @@ func parseExpr(t *testing.T, src string) ast.Expr {
 	return expr
 }
 
+func TestParseExpression_LogicalPrecedence(t *testing.T) {
+	src := "if a || b && not c:\n    x := 1\n\n"
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	_ = p.ParseProgram()
+	if len(p.Errors()) != 0 {
+		t.Fatalf("unexpected errors: %v", p.Errors())
+	}
+}
+
+func TestParseExpression_WhileCond(t *testing.T) {
+	src := "while a && b:\n    x := 1\n\n"
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	prog := p.ParseProgram()
+	if len(p.Errors()) != 0 {
+		t.Fatalf("unexpected errors: %v", p.Errors())
+	}
+	if _, ok := prog.Statements[0].(*ast.WhileStmt); !ok {
+		t.Fatalf("stmt0 not WhileStmt: %T", prog.Statements[0])
+	}
+}
+
+func TestParseExpression_ForCond(t *testing.T) {
+	src := "for i .. 1 + 2:\n    x := i\n\n"
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	prog := p.ParseProgram()
+	if len(p.Errors()) != 0 {
+		t.Fatalf("unexpected errors: %v", p.Errors())
+	}
+	if _, ok := prog.Statements[0].(*ast.ForStmt); !ok {
+		t.Fatalf("stmt0 not ForStmt: %T", prog.Statements[0])
+	}
+}
+
 func parseExprWithParser(t *testing.T, src string) (ast.Expr, *Parser) {
 	t.Helper()
 	l := lexer.New(src)

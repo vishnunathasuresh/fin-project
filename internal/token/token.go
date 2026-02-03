@@ -30,6 +30,8 @@ const (
 	BAT      Type = "BAT"
 	PS1      Type = "PS1"
 	TYPENAME Type = "TYPENAME"
+	INDENT   Type = "INDENT"
+	DEDENT   Type = "DEDENT"
 
 	// punctuation
 	DOT Type = "."

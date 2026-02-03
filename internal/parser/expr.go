@@ -41,6 +41,10 @@ func init() {
 		token.LBRACKET:  parseList,
 		token.LBRACE:    parseMap,
 		token.CMD_START: parseCommand,
+		// platform keywords can appear as identifiers (e.g., platform=bash)
+		token.BASH: parseIdent,
+		token.BAT:  parseIdent,
+		token.PS1:  parseIdent,
 	}
 }
 
@@ -272,7 +276,7 @@ func parseCallExpr(p *Parser, callee ast.Expr) ast.Expr {
 	// Parse arguments (both positional and named)
 	for !p.check(token.RPAREN) && !p.isAtEnd() {
 		// Check if this is a named argument by looking ahead: ident = value
-		if p.check(token.IDENT) {
+		if p.check(token.IDENT) || p.check(token.BASH) || p.check(token.BAT) || p.check(token.PS1) {
 			// Peek ahead to see if there's an '=' after the identifier
 			nextPos := p.pos + 1
 			if nextPos < len(p.tokens) && p.tokens[nextPos].Type == token.ASSIGN {
