@@ -311,7 +311,7 @@ func TestAnalyzeDefinitions_TracksFnScope(t *testing.T) {
 }
 
 func TestAnalyzeDefinitions_TracksForScope(t *testing.T) {
-	forStmt := &ast.ForStmt{Var: "i", Start: &ast.NumberLit{Value: "1", P: ast.Pos{Line: 1, Column: 10}}, End: &ast.NumberLit{Value: "3", P: ast.Pos{Line: 1, Column: 15}}, Body: []ast.Statement{
+	forStmt := &ast.ForStmt{Var: "i", Iterable: &ast.CallExpr{Name: "range", Args: []ast.Expr{&ast.NumberLit{Value: "0", P: ast.Pos{Line: 1, Column: 10}}, &ast.NumberLit{Value: "3", P: ast.Pos{Line: 1, Column: 13}}}, P: ast.Pos{Line: 1, Column: 5}}, Body: []ast.Statement{
 		&ast.DeclStmt{Names: []string{"j"}, Value: &ast.NumberLit{Value: "2", P: ast.Pos{Line: 2, Column: 5}}, P: ast.Pos{Line: 2, Column: 1}},
 	}, P: ast.Pos{Line: 1, Column: 1}}
 	prog := &ast.Program{Statements: []ast.Statement{forStmt}}

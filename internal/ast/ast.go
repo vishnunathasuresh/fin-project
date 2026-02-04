@@ -106,13 +106,12 @@ func (*IfStmt) node()      {}
 func (*IfStmt) stmt()      {}
 
 type ForStmt struct {
-	Var   string
-	Start Expr
-	End   Expr
-	Body  []Statement
-	Else  []Statement // optional else branch executed if loop not exited early (fin-v2)
-	Type  *TypeRef
-	P     Pos
+	Var      string
+	Iterable Expr
+	Body     []Statement
+	Else     []Statement // optional else branch executed if loop not exited early (fin-v2)
+	Type     *TypeRef
+	P        Pos
 }
 
 func (s *ForStmt) Pos() Pos { return s.P }

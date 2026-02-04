@@ -78,8 +78,7 @@ func (p *printer) printNode(n Node, level int, label string) {
 		}
 	case *ForStmt:
 		fmt.Fprintf(p.buf, "ForStmt var=%s @%d:%d\n", node.Var, node.P.Line, node.P.Column)
-		p.printNode(node.Start, level+1, "start")
-		p.printNode(node.End, level+1, "end")
+		p.printNode(node.Iterable, level+1, "iterable")
 		for _, s := range node.Body {
 			p.printNode(s, level+1, "body")
 		}

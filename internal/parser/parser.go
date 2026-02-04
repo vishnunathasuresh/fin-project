@@ -378,20 +378,19 @@ func (p *Parser) parseFor() ast.Statement {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected identifier after for")
 		return nil
 	}
-	start := p.parseExpression(0)
-	if !p.check(token.DOTDOT) {
-		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected .. in for range")
+	if !p.check(token.IN) {
+		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected 'in' after loop variable")
 		return nil
 	}
-	p.next() // consume '..'
-	end := p.parseExpression(0)
+	p.next() // consume 'in'
+	iterable := p.parseExpression(0)
 	if !p.check(token.NEWLINE) {
 		p.reportError(p.currentPos(), diagnostics.ErrSyntax, "expected newline after for header")
 	}
 	p.consumeNewlineIfPresent()
 	body := p.parseBlock(token.EOF)
 	p.consumeNewlineIfPresent()
-	return &ast.ForStmt{Var: iterTok.Literal, Start: start, End: end, Body: body, P: ast.Pos{Line: forTok.Line, Column: forTok.Column}}
+	return &ast.ForStmt{Var: iterTok.Literal, Iterable: iterable, Body: body, P: ast.Pos{Line: forTok.Line, Column: forTok.Column}}
 }
 
 func (p *Parser) parseWhile() ast.Statement {

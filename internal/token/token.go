@@ -20,6 +20,7 @@ const (
 	ELSE     Type = "ELSE"
 	ELIF     Type = "ELIF"
 	FOR      Type = "FOR"
+	IN       Type = "IN"
 	WHILE    Type = "WHILE"
 	RETURN   Type = "RETURN"
 	BREAK    Type = "BREAK"
@@ -91,6 +92,7 @@ var Keywords = map[string]Type{
 	"else":     ELSE,
 	"elif":     ELIF,
 	"for":      FOR,
+	"in":       IN,
 	"while":    WHILE,
 	"return":   RETURN,
 	"break":    BREAK,

@@ -185,8 +185,7 @@ func analyzeStmt(stmt ast.Statement, scope *Scope, reg *FunctionRegistry, res *A
 			res.Errors = append(res.Errors, err)
 		}
 		res.ForScopes[s] = loopScope
-		analyzeExpr(s.Start, scope, res, depth+1, limit)
-		analyzeExpr(s.End, scope, res, depth+1, limit)
+		analyzeExpr(s.Iterable, scope, res, depth+1, limit)
 		for _, inner := range s.Body {
 			analyzeStmt(inner, loopScope, reg, res, depth+1, limit)
 		}
