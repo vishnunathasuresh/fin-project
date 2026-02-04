@@ -35,7 +35,6 @@ def a() -> int:
 	if len(p.Errors()) != 0 {
 		t.Fatalf("unexpected parse errors: %v", p.Errors())
 	}
-
 	if len(prog.Statements) != 5 {
 		t.Fatalf("stmt count = %d, want 5", len(prog.Statements))
 	}
@@ -54,6 +53,33 @@ def a() -> int:
 	}
 	if _, ok := prog.Statements[4].(*ast.FnDecl); !ok {
 		t.Fatalf("stmt4 not FnDecl: %T", prog.Statements[4])
+	}
+}
+
+func TestParseProgram_TypeAndMethod(t *testing.T) {
+	src := `type Foo:
+    a: int
+    b: str
+
+def (f: Foo) inc(x: int) -> int:
+    return x + 1
+`
+	l := lexer.New(src)
+	toks := CollectTokens(l)
+	p := New(toks)
+	prog := p.ParseProgram()
+
+	if len(p.Errors()) != 0 {
+		t.Fatalf("unexpected errors: %v", p.Errors())
+	}
+	if len(prog.Statements) != 2 {
+		t.Fatalf("stmt count = %d, want 2", len(prog.Statements))
+	}
+	if _, ok := prog.Statements[0].(*ast.TypeDef); !ok {
+		t.Fatalf("stmt0 not TypeDef: %T", prog.Statements[0])
+	}
+	if _, ok := prog.Statements[1].(*ast.MethodDecl); !ok {
+		t.Fatalf("stmt1 not MethodDecl: %T", prog.Statements[1])
 	}
 }
 
@@ -95,9 +121,8 @@ func TestParseProgram_StressLongExpression(t *testing.T) {
 }
 
 func TestParseProgram_StressRecovery(t *testing.T) {
-	src := `x :=
-foo
-fn test
+	src := `x := 1
+def bad
     y = 1
 
 `
